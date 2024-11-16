@@ -1,0 +1,9 @@
+VENC := main.c common.c compat.c isp_profiles.c mipi_profiles.c vi_profiles.c
+SENSOR = $(SDK)/sensor/sc500ai_cmos.c $(SDK)/sensor/sc500ai_sensor_ctrl.c 
+BUILD = $(CC) $(VENC) $(SENSOR) -I $(SDK)/include -L $(DRV) $(LIB) -Os -s -o venc
+
+venc-hisi:
+	$(eval SDK = ../sdk/hi3516cv610)
+	$(eval LIB = -lss_mpi_isp -lss_mpi -ldnvqe -lupvqe -lss_mpi_ae -lss_mpi_awb \
+		-lldci -ldrc -ldehaze -lvoice_engine -lsecurec)
+	$(BUILD)

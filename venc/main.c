@@ -488,13 +488,13 @@ int main(int argc, const char* argv[]) {
   ret = ss_mpi_sys_init();
   if (ret) {
     printf("ERROR: Init SYS failed : 0x%x\n", ret);
-    HI_MPI_VB_Exit();
+    ss_mpi_vb_exit();
   }
 
   // Set VI-VPSS mode to VI offline and VPSS online
-  ot_vi_vpss_mode_type vi_vpss_mode_config;
+  ot_vi_vpss_mode vi_vpss_mode_config;
   ss_mpi_sys_get_vi_vpss_mode(&vi_vpss_mode_config);
-  vi_vpss_mode_config = vi_vpss_mode;
+  vi_vpss_mode_config.mode[vi_dev_id] = vi_vpss_mode;
 
   ret = ss_mpi_sys_set_vi_vpss_mode(&vi_vpss_mode_config);
   if (ret != TD_SUCCESS) {
@@ -1151,7 +1151,7 @@ void transmit(int socket_handle, uint8_t* tx_buffer, uint32_t tx_size,
       break;
 
     // RTP mode
-    case 1:
+    case 1:;
       struct RTPHeader rtp_header;
       rtp_header.version = 0x80;
       rtp_header.sequence = htobe16(rtp_sequence++);

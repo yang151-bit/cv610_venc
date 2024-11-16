@@ -1,6 +1,9 @@
 {
     "files.associations": {
         "ioctl.h": "c",
-        "type_traits": "cpp"
+        "type_traits": "cpp",
+        "main.h": "c",
+        "ot_mipi_rx.h": "c",
+        "ot_mpi_isp.h": "c"
     }
 }

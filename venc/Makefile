@@ -4,6 +4,6 @@ BUILD = $(CC) $(VENC) $(SENSOR) -I $(SDK)/include -L $(DRV) $(LIB) -Os -s -o ven
 
 venc-hisi:
 	$(eval SDK = ../sdk/hi3516cv610)
-	$(eval LIB = -lss_mpi_isp -lss_mpi -ldnvqe -lupvqe -lss_mpi_ae -lss_mpi_awb \
-		-lldci -ldrc -ldehaze -lvoice_engine -lsecurec)
+	$(eval LIB =  -lss_mpi -lss_mpi_sysbind -lss_mpi_sysmem -lss_mpi_ae -lss_mpi_isp -lot_mpi_isp -lss_mpi_awb\
+		 -ldehaze -lextend_stats -ldrc -lldci -ldnvqe -lupvqe -lbnr -lcalcflicker -lir_auto -lacs -lvoice_engine -lsecurec)
 	$(BUILD)

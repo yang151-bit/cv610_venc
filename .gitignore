@@ -1,2 +1,2 @@
 toolchain/
-lib/
+*.so

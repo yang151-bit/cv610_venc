@@ -132,7 +132,6 @@ int main(int argc, const char* argv[]) {
   uint32_t venc_max_rate = 1024 * 8;
 
   ot_venc_chn venc_first_ch_id = 0;
-  ot_venc_chn venc_second_ch_id = 1;
   td_bool venc_by_frame = TD_FALSE;
   uint32_t venc_slice_size = 4;
 
@@ -394,7 +393,7 @@ int main(int argc, const char* argv[]) {
       sns_object = &g_sns_sc500ai_obj;
       sns_profile = &DEV_ATTR_SC500AI_BASE;
 
-      vi_pipe_profile = &PIPE_ATTR_RAW10_420;
+      vi_pipe_profile = &PIPE_ATTR_RAW12_420;
       vi_channel_profile = &CHN_ATTR_420_SDR8_LINEAR;
       pipe_3dnr_profile = &PIPE_3DNR_ATTR_NORM;
       vi_vpss_mode = OT_VI_ONLINE_VPSS_ONLINE;
@@ -412,8 +411,10 @@ int main(int argc, const char* argv[]) {
   // Update VI pipe / channel resolution
   vi_pipe_profile->size.width = sensor_width;
   vi_pipe_profile->size.height = sensor_height;
-  vi_channel_profile->frame_rate_ctrl.src_frame_rate = sensor_framerate;
-  vi_channel_profile->frame_rate_ctrl.dst_frame_rate = sensor_framerate;
+  vi_channel_profile->size.width = sensor_width;
+  vi_channel_profile->size.height = sensor_height;
+  vi_channel_profile->frame_rate_ctrl.src_frame_rate = -1;
+  vi_channel_profile->frame_rate_ctrl.dst_frame_rate = -1;
 
   // Update ISP profile
   isp_profile->frame_rate = isp_framerate;
@@ -421,9 +422,6 @@ int main(int argc, const char* argv[]) {
   isp_profile->sns_size.height = sensor_height;
   isp_profile->wnd_rect.width = sensor_width;
   isp_profile->wnd_rect.height = sensor_height;
-  isp_profile->mipi_crop_attr.mipi_crop_en = 0;
-  isp_profile->mipi_crop_attr.mipi_crop_offset.x = 0;
-  isp_profile->mipi_crop_attr.mipi_crop_offset.y = 0;
   isp_profile->mipi_crop_attr.mipi_crop_offset.height = sensor_height;
   isp_profile->mipi_crop_attr.mipi_crop_offset.width = sensor_width;
 
@@ -457,6 +455,7 @@ int main(int argc, const char* argv[]) {
   pic_buf_attr.align = OT_DEFAULT_ALIGN;
   pic_buf_attr.bit_width = OT_DATA_BIT_WIDTH_12;
   pic_buf_attr.pixel_format = OT_PIXEL_FORMAT_RGB_BAYER_12BPP;
+  pic_buf_attr.video_format = OT_VIDEO_FORMAT_LINEAR;
 
   vb_conf.common_pool[0].blk_cnt  = 3;
   vb_conf.common_pool[0].blk_size = ot_common_get_pic_buf_size(&pic_buf_attr);
@@ -468,6 +467,7 @@ int main(int argc, const char* argv[]) {
   pic_buf_attr.align = OT_DEFAULT_ALIGN;
   pic_buf_attr.bit_width = OT_DATA_BIT_WIDTH_8;
   pic_buf_attr.pixel_format = OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420;
+  pic_buf_attr.video_format = OT_VIDEO_FORMAT_LINEAR;
 
   vb_conf.common_pool[1].blk_cnt = 2;
   vb_conf.common_pool[1].blk_size = ot_common_get_pic_buf_size(&pic_buf_attr);
@@ -532,12 +532,12 @@ int main(int argc, const char* argv[]) {
   // Set VI device configuration
   sns_profile->in_size.width = sensor_width;
   sns_profile->in_size.height = sensor_height;
-  // sns_profile->stBasAttr.stSacleAttr.stBasSize.u32Width = sensor_width;
-  // sns_profile->stBasAttr.stSacleAttr.stBasSize.u32Height = sensor_height;
-  sns_profile->sync_cfg.timing_blank.hsync_act = sensor_width;
-  sns_profile->sync_cfg.timing_blank.vsync_vact = sensor_height;
-  // sns_profile->stWDRAttr.u32CacheLine = sensor_height;
-  ss_mpi_vi_set_dev_attr(vi_dev_id, sns_profile);
+
+  ret = ss_mpi_vi_set_dev_attr(vi_dev_id, sns_profile);
+  if (ret != TD_SUCCESS) {
+    printf("ERROR: Unable to set VI device attribute : 0x%x\n", ret);
+    return ret;
+  }
 
   ot_vi_dev_attr attr;
   ss_mpi_vi_get_dev_attr(vi_dev_id, &attr);
@@ -550,14 +550,18 @@ int main(int argc, const char* argv[]) {
   }
 
   // Create pipe on VI device
-  ot_vi_bind_pipe pipe;
-  pipe.pipe_num = 1;
-  pipe.pipe_id[0] = vi_pipe_id;
-  ret = ss_mpi_vi_get_bind_by_dev(vi_dev_id, &pipe);
+  ret = ss_mpi_vi_bind(vi_dev_id, vi_pipe_id);
   if (ret != TD_SUCCESS) {
     printf("ERROR: Unable to bind VI pipe\n");
     return ret;
   }
+
+  ot_vi_wdr_fusion_grp_attr fusion_grp_attr;
+  fusion_grp_attr.wdr_mode = OT_WDR_MODE_NONE;
+  fusion_grp_attr.pipe_id[0] = vi_pipe_id;
+  fusion_grp_attr.cache_line = image_height/2;
+  fusion_grp_attr.pipe_reverse = TD_FALSE;
+  ss_mpi_vi_set_wdr_fusion_grp_attr(vi_pipe_id, &fusion_grp_attr);
 
   // Configure pipe
   ret = ss_mpi_vi_create_pipe(vi_pipe_id, vi_pipe_profile);
@@ -574,23 +578,22 @@ int main(int argc, const char* argv[]) {
   }
 
   // Configure channel
-  ss_mpi_vi_set_chn_attr(vi_pipe_id, vi_channel_id, vi_channel_profile);
-
-  
-  // Configure 3dnr
-  ss_mpi_vi_set_pipe_3dnr_attr(vi_pipe_id, pipe_3dnr_profile);
+  ret = ss_mpi_vi_set_chn_attr(vi_pipe_id, vi_channel_id, vi_channel_profile);
+  if (ret != TD_SUCCESS) {
+    printf("ERROR: Unable to set VI channel attribute : 0x%x\n", ret);
+    return ret;
+  }
   
   // Start channel
   ret = ss_mpi_vi_enable_chn(vi_pipe_id, vi_channel_id);
   if (ret != TD_SUCCESS) {
-    printf("ERROR: Unable to enable VI channel\n");
+    printf("ERROR: Unable to enable VI channel : 0x%x\n", ret);
     return ret;
   }
 
   // Initialize ISP for VI pipe
   ot_isp_sns_commbus bus;
   bus.i2c_dev = 0; // I2C device #0
-  sns_object->pfn_set_bus_info(vi_pipe_id, bus);
 
   // Register ISP libraries in sensor driver
   ot_isp_3a_alg_lib ae_lib;
@@ -599,28 +602,58 @@ int main(int argc, const char* argv[]) {
   ae_lib.id = 0;
   awb_lib.id = 0;
 
-  strncpy(ae_lib.lib_name, OT_AE_LIB_NAME, sizeof(OT_AE_LIB_NAME));
-  strncpy(awb_lib.lib_name, OT_AWB_LIB_NAME, sizeof(OT_AWB_LIB_NAME));
+  strncpy_s(ae_lib.lib_name, sizeof(ae_lib.lib_name), OT_AE_LIB_NAME, sizeof(OT_AE_LIB_NAME));
+  strncpy_s(awb_lib.lib_name, sizeof(awb_lib.lib_name), OT_AWB_LIB_NAME, sizeof(OT_AWB_LIB_NAME));
 
   // Register library callbacks
-  sns_object->pfn_register_callback(vi_pipe_id, &ae_lib, &awb_lib);
+  ret = sns_object->pfn_register_callback(vi_pipe_id, &ae_lib, &awb_lib);
+  if (ret != TD_SUCCESS) {
+      printf("sensor_register_callback failed with %#x!\n", ret);
+      return ret;
+  }
+  
+  ret = sns_object->pfn_set_bus_info(vi_pipe_id, bus);
+  if (ret != TD_SUCCESS) {
+      printf("set sensor bus info failed with %#x!\n", ret);
+      return ret;
+  }
 
   // Load (register) ISP libraries in MPI
-  ss_mpi_ae_register(vi_pipe_id, &ae_lib);
-  ss_mpi_awb_register(vi_pipe_id, &awb_lib);
+  ret = ss_mpi_ae_register(vi_pipe_id, &ae_lib);
+  if (ret != TD_SUCCESS) {
+    printf("ERROR: Unable to load ISP ae : 0x%x\n", ret);
+    return ret;
+  }
+  ret = ss_mpi_awb_register(vi_pipe_id, &awb_lib);
+  if (ret != TD_SUCCESS) {
+    printf("ERROR: Unable to load ISP awb : 0x%x\n", ret);
+    return ret;
+  }
 
   // Initialize ISP memory for VI pipe
-  ss_mpi_isp_mem_init(vi_pipe_id);
+  ret = ss_mpi_isp_mem_init(vi_pipe_id);
+  if (ret != TD_SUCCESS) {
+    printf("ERROR: Unable to init ISP memory : 0x%x\n", ret);
+    return ret;
+  }
 
   // Configure ISP
-  ss_mpi_isp_set_pub_attr(vi_pipe_id, isp_profile);
+  ret = ss_mpi_isp_set_pub_attr(vi_pipe_id, isp_profile);
+  if (ret != TD_SUCCESS) {
+    printf("ERROR: Unable to set ISP attribute : 0x%x\n", ret);
+    return ret;
+  }
 
   // Initialize ISP
   ret = ss_mpi_isp_init(vi_pipe_id);
   if (ret != TD_SUCCESS) {
-    printf("ERROR: Unable to init ISP\n");
+    printf("ERROR: Unable to init ISP : 0x%x\n", ret);
+    ss_mpi_isp_exit(vi_pipe_id);
     return ret;
   }
+
+  // Configure 3dnr
+  ss_mpi_vi_set_pipe_3dnr_attr(vi_pipe_id, pipe_3dnr_profile);
 
   if (limit_exposure) {
     ot_isp_exposure_attr attr;
@@ -650,8 +683,6 @@ int main(int argc, const char* argv[]) {
   grp_attr.frame_rate.dst_frame_rate = sensor_framerate;
   ss_mpi_vpss_create_grp(vpss_group_id, &grp_attr);
   
-  // ret = ss_mpi_vi_set_pipe_3dnr_attr(vi_pipe, &pipe_info->nr_attr);
-
   // Create second VPSS channel #1 for small stream (secondary stream)
   ot_vpss_chn_attr chn_attr;
   memset(&chn_attr, 0x00, sizeof(chn_attr));
@@ -661,13 +692,8 @@ int main(int argc, const char* argv[]) {
   chn_attr.compress_mode = OT_COMPRESS_MODE_NONE;
   chn_attr.dynamic_range = OT_DYNAMIC_RANGE_SDR8;
   chn_attr.pixel_format = OT_PIXEL_FORMAT_YVU_SEMIPLANAR_420;
-  if (chn_attr.width * chn_attr.height > 2688 * 1520) {
-    chn_attr.frame_rate.src_frame_rate = sensor_framerate;
-    chn_attr.frame_rate.dst_frame_rate = 20;
-  } else {
-    chn_attr.frame_rate.src_frame_rate = sensor_framerate;
-    chn_attr.frame_rate.dst_frame_rate = sensor_framerate;
-  }
+  chn_attr.frame_rate.src_frame_rate = -1;
+  chn_attr.frame_rate.dst_frame_rate = -1;
 
   chn_attr.depth = 0;
   chn_attr.mirror_en = image_mirror;
@@ -737,16 +763,18 @@ int main(int argc, const char* argv[]) {
   config.venc_attr.profile = 0; // Baseline (0), Main(1), High(1)
   config.venc_attr.is_by_frame = venc_by_frame;
   config.gop_attr.gop_mode = OT_VENC_GOP_MODE_NORMAL_P;
-  config.gop_attr.normal_p.ip_qp_delta = 4;
+  config.gop_attr.normal_p.ip_qp_delta = 2;
   config.rc_attr.rc_mode = rc_mode;
 
   switch (rc_codec) {
     case OT_PT_H264:
-      config.venc_attr.h264_attr.rcn_ref_share_buf_en = TD_TRUE;
+      config.venc_attr.h264_attr.rcn_ref_share_buf_en = TD_FALSE;
+      config.venc_attr.h264_attr.frame_buf_ratio = 100;
       break;
 
     case OT_PT_H265:
-      config.venc_attr.h265_attr.rcn_ref_share_buf_en = TD_TRUE;
+      config.venc_attr.h265_attr.rcn_ref_share_buf_en = TD_FALSE;
+      config.venc_attr.h265_attr.frame_buf_ratio = 100;
       break;
   }
 
@@ -757,7 +785,7 @@ int main(int argc, const char* argv[]) {
       config.rc_attr.h264_avbr.dst_frame_rate = sensor_framerate;
       config.rc_attr.h264_avbr.gop = venc_gop_size;
       config.rc_attr.h264_avbr.max_bit_rate = venc_max_rate;
-      config.rc_attr.h264_avbr.stats_time = 1;
+      config.rc_attr.h264_avbr.stats_time = 4;
       break;
 
     case OT_VENC_RC_MODE_H264_QVBR:
@@ -766,7 +794,7 @@ int main(int argc, const char* argv[]) {
       config.rc_attr.h264_qvbr.dst_frame_rate = sensor_framerate;
       config.rc_attr.h264_qvbr.gop = venc_gop_size;
       config.rc_attr.h264_qvbr.target_bit_rate = venc_max_rate;
-      config.rc_attr.h264_qvbr.stats_time = 1;
+      config.rc_attr.h264_qvbr.stats_time = 4;
 
     case OT_VENC_RC_MODE_H264_VBR:
       printf("> Codec: h264 VBR\n");
@@ -774,7 +802,7 @@ int main(int argc, const char* argv[]) {
       config.rc_attr.h264_vbr.dst_frame_rate = sensor_framerate;
       config.rc_attr.h264_vbr.gop = venc_gop_size;
       config.rc_attr.h264_vbr.max_bit_rate = venc_max_rate;
-      config.rc_attr.h264_vbr.stats_time = 1;
+      config.rc_attr.h264_vbr.stats_time = 4;
       break;
 
     case OT_VENC_RC_MODE_H264_CBR:
@@ -783,7 +811,7 @@ int main(int argc, const char* argv[]) {
       config.rc_attr.h264_cbr.dst_frame_rate = sensor_framerate;
       config.rc_attr.h264_cbr.gop = venc_gop_size;
       config.rc_attr.h264_cbr.bit_rate = venc_max_rate;
-      config.rc_attr.h264_cbr.stats_time = 1;
+      config.rc_attr.h264_cbr.stats_time = 4;
       break;
 
     case OT_VENC_RC_MODE_H265_AVBR:
@@ -792,7 +820,7 @@ int main(int argc, const char* argv[]) {
       config.rc_attr.h265_avbr.dst_frame_rate = sensor_framerate;
       config.rc_attr.h265_avbr.gop = venc_gop_size;
       config.rc_attr.h265_avbr.max_bit_rate = venc_max_rate;
-      config.rc_attr.h265_avbr.stats_time = 1;
+      config.rc_attr.h265_avbr.stats_time = 4;
       break;
 
     case OT_VENC_RC_MODE_H265_VBR:
@@ -801,7 +829,7 @@ int main(int argc, const char* argv[]) {
       config.rc_attr.h265_vbr.dst_frame_rate = sensor_framerate;
       config.rc_attr.h265_vbr.gop = venc_gop_size;
       config.rc_attr.h265_vbr.max_bit_rate = venc_max_rate;
-      config.rc_attr.h265_vbr.stats_time = 1;
+      config.rc_attr.h265_vbr.stats_time = 4;
       break;
 
     case OT_VENC_RC_MODE_H265_CBR:
@@ -810,7 +838,7 @@ int main(int argc, const char* argv[]) {
       config.rc_attr.h265_cbr.dst_frame_rate = sensor_framerate;
       config.rc_attr.h265_cbr.gop = venc_gop_size;
       config.rc_attr.h265_cbr.bit_rate = venc_max_rate;
-      config.rc_attr.h265_cbr.stats_time = 1;
+      config.rc_attr.h265_cbr.stats_time = 4;
       break;
 
     case OT_VENC_RC_MODE_H265_QVBR:
@@ -819,12 +847,12 @@ int main(int argc, const char* argv[]) {
       config.rc_attr.h265_qvbr.dst_frame_rate = sensor_framerate;
       config.rc_attr.h265_qvbr.gop = venc_gop_size;
       config.rc_attr.h265_qvbr.target_bit_rate = venc_max_rate;
-      config.rc_attr.h265_qvbr.stats_time = 1;
+      config.rc_attr.h265_qvbr.stats_time = 4;
       break;
   }
 
-  // Create channel #1
-  ret = ss_mpi_venc_create_chn(venc_second_ch_id, &config);
+  // Create channel #0
+  ret = ss_mpi_venc_create_chn(venc_first_ch_id, &config);
   if (ret != TD_SUCCESS) {
     printf("ERROR: Unable to create VENC channel = 0x%x\n", ret);
     return ret;
@@ -832,7 +860,7 @@ int main(int argc, const char* argv[]) {
 
   // Configure rate control for channel #1
   ot_venc_rc_param rc_param;
-  ss_mpi_venc_get_rc_param(venc_second_ch_id, &rc_param);
+  ss_mpi_venc_get_rc_param(venc_first_ch_id, &rc_param);
   switch (rc_mode) {
     case OT_VENC_RC_MODE_H264_AVBR:
       rc_param.h264_avbr_param.max_reencode_times = 0;
@@ -871,13 +899,13 @@ int main(int argc, const char* argv[]) {
   rc_param.scene_chg_detect.adapt_insert_idr_frame_en = TD_TRUE;
   rc_param.scene_chg_detect.detect_scene_chg_en = TD_TRUE;
 
-  ret = ss_mpi_venc_set_rc_param(venc_second_ch_id, &rc_param);
+  ret = ss_mpi_venc_set_rc_param(venc_first_ch_id, &rc_param);
   if (ret != TD_SUCCESS) {
     printf("ERROR: Unable to set VENC RC options = 0x%x\n", ret);
     return ret;
   }
 
-  ss_mpi_venc_get_rc_param(venc_second_ch_id, &rc_param);
+  ss_mpi_venc_get_rc_param(venc_first_ch_id, &rc_param);
   printf("> Scene detect = %s, Adaptive IDR = %s, Start Qp = %d, Row dQp = %d\n",
     rc_param.scene_chg_detect.detect_scene_chg_en ? "YES" : "NO",
     rc_param.scene_chg_detect.adapt_insert_idr_frame_en ? "YES" : "NO",
@@ -886,7 +914,7 @@ int main(int argc, const char* argv[]) {
   // Enable slices (not available in frame mode)
 
   ot_venc_slice_split avc_param;
-  ss_mpi_venc_get_slice_split(venc_second_ch_id, &avc_param);
+  ss_mpi_venc_get_slice_split(venc_first_ch_id, &avc_param);
   avc_param.split_mode = 1;
   avc_param.enable = 1;
   avc_param.slice_output_en = 1;
@@ -896,7 +924,7 @@ int main(int argc, const char* argv[]) {
     if (venc_by_frame) {
       printf("WARN: Slices are not available in [frame] data format\n");
     } else {
-      int ret = ss_mpi_venc_set_slice_split(venc_second_ch_id, &avc_param);
+      int ret = ss_mpi_venc_set_slice_split(venc_first_ch_id, &avc_param);
       if (ret != TD_SUCCESS) {
         printf("ERROR: Unable to set VENC slice size = 0x%x\n", ret);
         return ret;
@@ -904,12 +932,12 @@ int main(int argc, const char* argv[]) {
     }
   }
 
-  ss_mpi_venc_get_slice_split(venc_second_ch_id, &avc_param);
+  ss_mpi_venc_get_slice_split(venc_first_ch_id, &avc_param);
   printf("> VENC slices is [%s] | Slice size = %d lines\n",
     avc_param.enable ? "Enabled" : "Disabled", avc_param.split_size);
 
   ot_venc_ref_param ref_param;
-  ss_mpi_venc_get_ref_param(venc_second_ch_id, &ref_param);
+  ss_mpi_venc_get_ref_param(venc_first_ch_id, &ref_param);
   printf("> Reference = EN: %d, Base: %d, Enhance: %d\n",
     ref_param.pred_en, ref_param.base, ref_param.enhance);
 
@@ -917,7 +945,7 @@ int main(int argc, const char* argv[]) {
   ref_param.enhance = 0;
   ref_param.base = 1;
 
-  ret = ss_mpi_venc_set_ref_param(venc_second_ch_id, &ref_param);
+  ret = ss_mpi_venc_set_ref_param(venc_first_ch_id, &ref_param);
   if (ret != TD_SUCCESS) {
     printf("ERROR: Unable to set VENC REF options = 0x%x\n", ret);
     return ret;
@@ -926,7 +954,7 @@ int main(int argc, const char* argv[]) {
   // Setup frame lost strategy
   if (rc_codec == OT_PT_H265) {
     ot_venc_frame_lost_strategy lost_param;
-    ret = ss_mpi_venc_get_frame_lost_strategy(venc_second_ch_id, &lost_param);
+    ret = ss_mpi_venc_get_frame_lost_strategy(venc_first_ch_id, &lost_param);
     if (ret != TD_SUCCESS) {
       printf("ERROR: Unable to get frame lost strategy = 0x%x\n", ret);
       return ret;
@@ -937,7 +965,7 @@ int main(int argc, const char* argv[]) {
     lost_param.bit_rate_threshold = venc_max_rate * 1024 / 2;
     lost_param.frame_gap = 1;
 
-    ret = ss_mpi_venc_set_frame_lost_strategy(venc_second_ch_id, &lost_param);
+    ret = ss_mpi_venc_set_frame_lost_strategy(venc_first_ch_id, &lost_param);
     if (ret != TD_SUCCESS) {
       printf("ERROR: Unable to set frame lost strategy = 0x%x\n", ret);
       return ret;
@@ -955,7 +983,7 @@ int main(int argc, const char* argv[]) {
     roi_config.is_abs_qp = TD_TRUE;
     roi_config.qp = roi_qp;
 
-    ret = ss_mpi_venc_set_roi_attr(venc_second_ch_id, &roi_config);
+    ret = ss_mpi_venc_set_roi_attr(venc_first_ch_id, &roi_config);
     if (ret != TD_SUCCESS) {
       printf("ERROR: Unable to setup VENC ROI = 0x%x\n", ret);
       return ret;
@@ -974,14 +1002,14 @@ int main(int argc, const char* argv[]) {
 
   venc_dst.mod_id = OT_ID_VENC;
   venc_dst.dev_id = 0;
-  venc_dst.chn_id = venc_second_ch_id;
+  venc_dst.chn_id = venc_first_ch_id;
 
   ss_mpi_sys_bind(&vpss_src, &venc_dst);
 
   // Start VENC channel #1 without frames count limit
   ot_venc_start_param recv_param;
   recv_param.recv_pic_num = -1;
-  ret = ss_mpi_venc_start_chn(venc_second_ch_id, &recv_param);
+  ret = ss_mpi_venc_start_chn(venc_first_ch_id, &recv_param);
   if (ret != TD_SUCCESS) {
     printf("ERROR: Unable to start Rx frames\n");
     return ret;
@@ -1005,7 +1033,7 @@ int main(int argc, const char* argv[]) {
 
   while (loop_running) {
     // Process stream on encoder channel #1
-    if (!processStream(venc_second_ch_id, socket_handle,
+    if (!processStream(venc_first_ch_id, socket_handle,
         (struct sockaddr*)&dst_addr, max_frame_size)) {
       // --- Take a rest if no frames received
       // Another way: HI_MPI_VENC_GetFd(vecn_channel_id) + epoll

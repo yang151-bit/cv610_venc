@@ -1,6 +1,7 @@
-VENC := main.c common.c compat.c isp_profiles.c mipi_profiles.c vi_profiles.c
+VENC := main.c common.c isp_profiles.c mipi_profiles.c vi_profiles.c
 SENSOR = $(SDK)/sensor/sc500ai_cmos.c $(SDK)/sensor/sc500ai_sensor_ctrl.c 
-BUILD = $(CC) $(VENC) $(SENSOR) -I $(SDK)/include -L $(DRV) $(LIB) -Os -s -o venc
+BUILD_BASE = $(CC) $(VENC) $(SENSOR) -I $(SDK)/include -L $(DRV) -o venc
+BUILD = $(BUILD_BASE) -Wl,--start-group $(LIB) -Wl,--end-group
 
 venc-hisi:
 	$(eval SDK = ../sdk/hi3516cv610)

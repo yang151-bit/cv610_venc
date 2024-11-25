@@ -70,8 +70,8 @@ ot_vi_pipe_attr PIPE_ATTR_RAW10_420 = {
 ot_3dnr_attr PIPE_3DNR_ATTR_NORM = {
     TD_TRUE, 
     OT_NR_TYPE_VIDEO_NORM,
-    OT_COMPRESS_MODE_FRAME,
-    OT_NR_MOTION_MODE_NORM
+    OT_COMPRESS_MODE_LINE,
+    OT_NR_MOTION_MODE_COMPENSATION
 };
 
 // VI Channel configuration profiles

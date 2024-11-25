@@ -494,6 +494,19 @@ int main(int argc, const char* argv[]) {
   // Set VI-VPSS mode to VI offline and VPSS online
   ot_vi_vpss_mode vi_vpss_mode_config;
   ss_mpi_sys_get_vi_vpss_mode(&vi_vpss_mode_config);
+  
+  if(vi_vpss_mode == OT_VI_ONLINE_VPSS_ONLINE){
+    vi_vpss_mode_config.mode[0] = OT_VI_OFFLINE_VPSS_OFFLINE;
+    vi_vpss_mode_config.mode[1] = OT_VI_OFFLINE_VPSS_OFFLINE;
+    vi_vpss_mode_config.mode[2] = OT_VI_OFFLINE_VPSS_OFFLINE;
+    vi_vpss_mode_config.mode[3] = OT_VI_OFFLINE_VPSS_OFFLINE;
+  }else{
+    vi_vpss_mode_config.mode[0] = OT_VI_OFFLINE_VPSS_ONLINE;
+    vi_vpss_mode_config.mode[1] = OT_VI_OFFLINE_VPSS_ONLINE;
+    vi_vpss_mode_config.mode[2] = OT_VI_OFFLINE_VPSS_ONLINE;
+    vi_vpss_mode_config.mode[3] = OT_VI_OFFLINE_VPSS_ONLINE;
+  }
+  
   vi_vpss_mode_config.mode[vi_dev_id] = vi_vpss_mode;
 
   ret = ss_mpi_sys_set_vi_vpss_mode(&vi_vpss_mode_config);
@@ -552,7 +565,7 @@ int main(int argc, const char* argv[]) {
   // Create pipe on VI device
   ret = ss_mpi_vi_bind(vi_dev_id, vi_pipe_id);
   if (ret != TD_SUCCESS) {
-    printf("ERROR: Unable to bind VI pipe\n");
+    printf("ERROR: Unable to bind VI pipe : 0x%x\n", ret);
     return ret;
   }
 
@@ -569,6 +582,26 @@ int main(int argc, const char* argv[]) {
     printf("ERROR: Unable to create VI pipe = 0x%x\n", ret);
     return ret;
   }
+  
+  ot_frame_interrupt_attr vi_int_attr;
+  vi_int_attr.interrupt_type = OT_FRAME_INTERRUPT_EARLY;
+  vi_int_attr.early_line = image_height - 200;
+  ret = ss_mpi_vi_set_pipe_frame_interrupt_attr(vi_pipe_id, &vi_int_attr);
+  if (ret != TD_SUCCESS) {
+    printf("ERROR: Unable to set VI pipe interrupt : 0x%x\n", ret);
+    return ret;
+  }
+
+  if(vi_vpss_mode == OT_VI_ONLINE_VPSS_ONLINE){
+    ot_frame_interrupt_attr vpss_int_attr;
+    vpss_int_attr.interrupt_type = OT_FRAME_INTERRUPT_EARLY_END;
+    vpss_int_attr.early_line = image_height - 200;
+    ret = ss_mpi_vpss_set_grp_frame_interrupt_attr(vi_pipe_id, &vpss_int_attr);
+    if (ret != TD_SUCCESS) {
+      printf("ERROR: Unable to set VPSS grp interrupt : 0x%x\n", ret);
+      return ret;
+    }
+  }
 
   // Start pipe
   ret = ss_mpi_vi_start_pipe(vi_pipe_id);
@@ -577,6 +610,21 @@ int main(int argc, const char* argv[]) {
     return ret;
   }
 
+  ot_low_delay_info info;
+
+  if(vi_vpss_mode != OT_VI_ONLINE_VPSS_ONLINE){
+    ret = ss_mpi_vi_get_pipe_low_delay(vi_pipe_id, &info);
+    if (enable_lowdelay) {
+      info.enable = TD_TRUE;
+      info.line_cnt = image_height / 4;
+      ret = ss_mpi_vi_set_pipe_low_delay(vi_pipe_id, &info);
+      if (ret != TD_SUCCESS) {
+        printf("ERROR: Unable to set VI low delay mode\n");
+        return ret;
+      }
+    }
+  }
+  
   // Configure channel
   ret = ss_mpi_vi_set_chn_attr(vi_pipe_id, vi_channel_id, vi_channel_profile);
   if (ret != TD_SUCCESS) {
@@ -584,6 +632,14 @@ int main(int argc, const char* argv[]) {
     return ret;
   }
   
+  // Configure 3dnr
+
+  ot_vi_pipe_param vi_pipe_param;
+  ss_mpi_vi_get_pipe_param(vi_pipe_id, &vi_pipe_param);
+  vi_pipe_param.nr_effect_mode = OT_VI_NR_EFFECT_MODE_NORM;
+  ss_mpi_vi_set_pipe_param(vi_pipe_id, &vi_pipe_param);
+  ss_mpi_vi_set_pipe_3dnr_attr(vi_pipe_id, pipe_3dnr_profile);
+
   // Start channel
   ret = ss_mpi_vi_enable_chn(vi_pipe_id, vi_channel_id);
   if (ret != TD_SUCCESS) {
@@ -652,9 +708,6 @@ int main(int argc, const char* argv[]) {
     return ret;
   }
 
-  // Configure 3dnr
-  ss_mpi_vi_set_pipe_3dnr_attr(vi_pipe_id, pipe_3dnr_profile);
-
   if (limit_exposure) {
     ot_isp_exposure_attr attr;
     ret = ss_mpi_isp_get_exposure_attr(0, &attr);
@@ -679,8 +732,8 @@ int main(int argc, const char* argv[]) {
   grp_attr.max_width = MAX2(sensor_width, image_width);
   grp_attr.max_height = MAX2(sensor_height, image_height);
   grp_attr.dei_mode = OT_VPSS_DEI_MODE_OFF;
-  grp_attr.frame_rate.src_frame_rate = sensor_framerate;
-  grp_attr.frame_rate.dst_frame_rate = sensor_framerate;
+  grp_attr.frame_rate.src_frame_rate = -1;
+  grp_attr.frame_rate.dst_frame_rate = -1;
   ss_mpi_vpss_create_grp(vpss_group_id, &grp_attr);
   
   // Create second VPSS channel #1 for small stream (secondary stream)
@@ -701,30 +754,29 @@ int main(int argc, const char* argv[]) {
   chn_attr.video_format = OT_VIDEO_FORMAT_LINEAR;
   chn_attr.aspect_ratio.mode = OT_ASPECT_RATIO_NONE;
 
-  ret = ss_mpi_vpss_set_chn_attr(vpss_group_id, vpss_second_ch_id, &chn_attr);
+  ret = ss_mpi_vpss_set_chn_attr(vpss_group_id, vpss_first_ch_id, &chn_attr);
   if (ret != TD_SUCCESS) {
     printf("ERROR: Unable to set VPSS channel configuration = 0x0%x\n", ret);
     return ret;
   }
 
-  ot_low_delay_info info;
-  ret = ss_mpi_vpss_get_chn_low_delay(vpss_group_id, vpss_second_ch_id, &info);
+  ret = ss_mpi_vpss_get_chn_low_delay(vpss_group_id, vpss_first_ch_id, &info);
   if (enable_lowdelay) {
     info.enable = TD_TRUE;
     info.line_cnt = image_height / 4;
-    ret = ss_mpi_vpss_set_chn_low_delay(vpss_group_id, vpss_second_ch_id, &info);
+    ret = ss_mpi_vpss_set_chn_low_delay(vpss_group_id, vpss_first_ch_id, &info);
     if (ret != TD_SUCCESS) {
-      printf("ERROR: Unable to set low delay mode\n");
+      printf("ERROR: Unable to set VPSS low delay mode\n");
       return ret;
     }
   }
 
-  ret = ss_mpi_vpss_get_chn_low_delay(vpss_group_id, vpss_second_ch_id, &info);
+  ret = ss_mpi_vpss_get_chn_low_delay(vpss_group_id, vpss_first_ch_id, &info);
   printf("> Low delay is %s, line count = %d\n",
     info.enable ? "[Enabled]" : "[Disabled]", info.line_cnt);
 
   // Enable channels
-  ret = ss_mpi_vpss_enable_chn(vpss_group_id, vpss_second_ch_id);
+  ret = ss_mpi_vpss_enable_chn(vpss_group_id, vpss_first_ch_id);
   if (ret != TD_SUCCESS) {
     printf("ERROR: Unable to enable VPSS channel\n");
     return ret;
@@ -742,12 +794,12 @@ int main(int argc, const char* argv[]) {
   ot_mpp_chn vpss_dst;
 
   vi_src.mod_id = OT_ID_VI;
-  vi_src.dev_id = vi_dev_id;
+  vi_src.dev_id = vi_pipe_id;
   vi_src.chn_id = vi_channel_id;
 
   vpss_dst.mod_id = OT_ID_VPSS;
   vpss_dst.dev_id = vpss_group_id;
-  vpss_dst.chn_id = vpss_second_ch_id;
+  vpss_dst.chn_id = vpss_first_ch_id;
 
   ss_mpi_sys_bind(&vi_src, &vpss_dst);
 
@@ -998,7 +1050,7 @@ int main(int argc, const char* argv[]) {
 
   vpss_src.mod_id = OT_ID_VPSS;
   vpss_src.dev_id = vpss_group_id;
-  vpss_src.chn_id = vpss_second_ch_id;
+  vpss_src.chn_id = vpss_first_ch_id;
 
   venc_dst.mod_id = OT_ID_VENC;
   venc_dst.dev_id = 0;
@@ -1187,19 +1239,26 @@ void transmit(int socket_handle, uint8_t* tx_buffer, uint32_t tx_size,
       rtp_header.timestamp = 0;
       rtp_header.ssrc_id = 0xDEADBEEF;
 
-      struct iovec iov[2];
-      iov[0].iov_base = &rtp_header;
-      iov[0].iov_len = sizeof(struct RTPHeader);
-      iov[1].iov_base = tx_buffer;
-      iov[1].iov_len = tx_size;
+      // struct iovec iov[2];
+      // iov[0].iov_base = &rtp_header;
+      // iov[0].iov_len = sizeof(struct RTPHeader);
+      // iov[1].iov_base = tx_buffer;
+      // iov[1].iov_len = tx_size;
 
-      struct msghdr msg;
-      msg.msg_iovlen = 2;
-      msg.msg_iov = iov;
-      msg.msg_name = dst_address;
-      msg.msg_namelen = sizeof(struct sockaddr_in);
+      // struct msghdr msg;
+      // msg.msg_iovlen = 2;
+      // msg.msg_iov = iov;
+      // msg.msg_name = dst_address;
+      // msg.msg_namelen = sizeof(struct sockaddr_in);
 
-      sendmsg(socket_handle, &msg, 0);
+      // sendmsg(socket_handle, &msg, 0);
+      
+      uint8_t* combined_buffer = (uint8_t*)malloc(sizeof(struct RTPHeader) + tx_size);
+      memcpy(combined_buffer, &rtp_header, sizeof(struct RTPHeader));
+      memcpy(combined_buffer + sizeof(struct RTPHeader), tx_buffer, tx_size);
+      sendto(socket_handle, combined_buffer, sizeof(struct RTPHeader) + tx_size,
+                 0, dst_address, sizeof(struct sockaddr_in));
+      free(combined_buffer);
       break;
   }
 }

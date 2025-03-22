@@ -99,6 +99,7 @@ SensorType sensor_type = SC500AI;
 uint32_t sensor_width = 1920;
 uint32_t sensor_height = 1080;
 uint32_t sensor_framerate = 60;
+uint8_t sensor_mode = 0;
 bool loop_running = true;
 
 static void handler(int value) {
@@ -195,6 +196,7 @@ int main(int argc, const char* argv[]) {
       sensor_width = image_width = 1920;
       sensor_height = image_height = 1080;
       sensor_framerate = 60;
+      sensor_mode = SC500AI_1080P_100FPS_10BIT_LINEAR_MODE;
       isp_framerate = 60;
       vi_vpss_mode      = OT_VI_OFFLINE_VPSS_ONLINE;
     // cv610 SC500AI 1080P
@@ -204,6 +206,7 @@ int main(int argc, const char* argv[]) {
       sensor_width = image_width = 1440;
       sensor_height = image_height = 800;
       sensor_framerate = 90;
+      sensor_mode = SC500AI_800P_60FPS_10BIT_LINEAR_MODE;
       isp_framerate = 90;
       vi_vpss_mode      = OT_VI_OFFLINE_VPSS_ONLINE;
     // - cv610 SC500AI 5MP
@@ -213,6 +216,7 @@ int main(int argc, const char* argv[]) {
       sensor_width = image_width = 2880;
       sensor_height = image_height = 1620;
       sensor_framerate = 30;
+      sensor_mode = SC500AI_5M_30FPS_10BIT_LINEAR_MODE;
       isp_framerate = 30;
       vi_vpss_mode      = OT_VI_OFFLINE_VPSS_ONLINE;
 
@@ -300,10 +304,6 @@ int main(int argc, const char* argv[]) {
 
   __OnArgument("-f") {
     sensor_framerate = atoi(__ArgValue);
-    // Normalize sensor framerate
-    if (sensor_framerate > 60) {
-      sensor_framerate = 60;
-    }
     continue;
   }
 
@@ -370,8 +370,8 @@ int main(int argc, const char* argv[]) {
   __EndParseConsoleArguments__
 
   // Normalize sensor framerate
-  if (sensor_framerate > 60) {
-    sensor_framerate = 60;
+  if (sensor_framerate > 120) {
+    sensor_framerate = 120;
   }
 
   // Normalize GOP
@@ -398,11 +398,20 @@ int main(int argc, const char* argv[]) {
       pipe_3dnr_profile = &PIPE_3DNR_ATTR_NORM;
       vi_vpss_mode = OT_VI_ONLINE_VPSS_ONLINE;
 
-      mipi_profile = &MIPI_4lane_CHN0_SENSOR_SC500AI_10BIT_2M_NOWDR_ATTR;
-      mipi_profile->mipi_attr.lane_id[0] = 0;
-      mipi_profile->mipi_attr.lane_id[1] = 1;
-      mipi_profile->mipi_attr.lane_id[2] = 2;
-      mipi_profile->mipi_attr.lane_id[3] = 3;
+      if(sensor_mode == SC500AI_800P_60FPS_10BIT_LINEAR_MODE){
+        mipi_profile = &MIPI_2lane_CHN0_SENSOR_SC500AI_10BIT_1M_NOWDR_ATTR;
+        mipi_profile->mipi_attr.lane_id[0] = 0;
+        mipi_profile->mipi_attr.lane_id[1] = 1;
+        mipi_profile->mipi_attr.lane_id[2] = -1;
+        mipi_profile->mipi_attr.lane_id[3] = -1;
+      }
+      else{
+        mipi_profile = &MIPI_4lane_CHN0_SENSOR_SC500AI_10BIT_2M_NOWDR_ATTR;
+        mipi_profile->mipi_attr.lane_id[0] = 0;
+        mipi_profile->mipi_attr.lane_id[1] = 1;
+        mipi_profile->mipi_attr.lane_id[2] = 2;
+        mipi_profile->mipi_attr.lane_id[3] = 3;
+    }
 
       mipi_profile->mipi_attr.input_data_type = DATA_TYPE_RAW_10BIT;
       break;
@@ -413,11 +422,12 @@ int main(int argc, const char* argv[]) {
   vi_pipe_profile->size.height = sensor_height;
   vi_channel_profile->size.width = sensor_width;
   vi_channel_profile->size.height = sensor_height;
-  vi_channel_profile->frame_rate_ctrl.src_frame_rate = -1;
-  vi_channel_profile->frame_rate_ctrl.dst_frame_rate = -1;
+  vi_channel_profile->frame_rate_ctrl.src_frame_rate = sensor_framerate;
+  vi_channel_profile->frame_rate_ctrl.dst_frame_rate = sensor_framerate;
 
   // Update ISP profile
-  isp_profile->frame_rate = isp_framerate;
+  isp_profile->frame_rate = sensor_framerate;
+  isp_profile->sns_mode  = sensor_mode;
   isp_profile->sns_size.width = sensor_width;
   isp_profile->sns_size.height = sensor_height;
   isp_profile->wnd_rect.width = sensor_width;

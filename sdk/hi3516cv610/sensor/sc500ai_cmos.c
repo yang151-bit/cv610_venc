@@ -1220,7 +1220,7 @@ static td_s32 cmos_set_image_mode(ot_vi_pipe vi_pipe, const ot_isp_cmos_sns_imag
             sns_image_mode->width <= g_sc500ai_mode_tbl[i].width &&
             sns_image_mode->height <= g_sc500ai_mode_tbl[i].height &&
             sns_state->wdr_mode == g_sc500ai_mode_tbl[i].wdr_mode) {
-            image_mode = (sc500ai_res_mode)i;
+            // image_mode = (sc500ai_res_mode)i;
             break;
         }
     }

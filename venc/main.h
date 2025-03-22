@@ -48,6 +48,8 @@
 #include "ss_mpi_vi.h"
 #include "ss_mpi_vpss.h"
 
+#include "sc500ai_cmos.h"
+
 typedef enum SensorType {
   SC500AI = 0,
 } SensorType;

@@ -254,6 +254,10 @@ static td_s32 sc500ai_linear_5m30_10bit_init_part1(ot_vi_pipe vi_pipe)
     ret += sc500ai_write_register(vi_pipe, 0x36f9, 0x80);
     ret += sc500ai_write_register(vi_pipe, 0x301f, 0x01);
     ret += sc500ai_write_register(vi_pipe, 0x3253, 0x0a);
+	// ret += sc500ai_write_register(vi_pipe, 0x320c, 0x06);   // HTS_H
+	// ret += sc500ai_write_register(vi_pipe, 0x320d, 0x2c);   // HTS_L
+	// ret += sc500ai_write_register(vi_pipe, 0x320e, 0x03);   // VTS_H
+	// ret += sc500ai_write_register(vi_pipe, 0x320f, 0x43);   // VTS_L
     ret += sc500ai_write_register(vi_pipe, 0x3301, 0x0a);
     ret += sc500ai_write_register(vi_pipe, 0x3302, 0x18);
     ret += sc500ai_write_register(vi_pipe, 0x3303, 0x10);

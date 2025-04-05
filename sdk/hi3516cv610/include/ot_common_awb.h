@@ -46,9 +46,10 @@ typedef struct {
 } ot_isp_color_sector; /* Not support for Hi3519DV500 */
 
 typedef struct {
-    td_u16  wb_ref_temp;       /* RW;reference color temperature for WB  */
-    td_u16  gain_offset[OT_ISP_BAYER_CHN_NUM];  /* RW; gain offset for white balance */
-    td_s32  wb_para[OT_ISP_AWB_CURVE_PARA_NUM];      /* RW; parameter for wb curve,p1,p2,q1,a1,b1,c1 */
+    td_u16  wb_ref_temp;       /* RW; Range:[0, 0xFFFF]; reference color temperature for WB  */
+    td_u16  gain_offset[OT_ISP_BAYER_CHN_NUM];  /* RW; Range:[0, 0xFFFF]; gain offset for white balance */
+    td_s32  wb_para[OT_ISP_AWB_CURVE_PARA_NUM];  /* RW; Range:[0, 0xFFFFFFFF];
+                                               calibration parameter for wb curve,p1,p2,q1,a,b,c */
 
     td_u16  golden_rgain;      /* rgain for the golden sample */
     td_u16  golden_bgain;      /* bgain for the golden sample */
@@ -60,7 +61,7 @@ typedef struct {
     td_u16    init_rgain;           /* init WB gain */
     td_u16    init_ggain;
     td_u16    init_bgain;
-    td_u8     awb_run_interval;       /* RW;AWB run interval */
+    td_u8     awb_run_interval;       /* RW; Range: [0x1, 0xFF];  Format:8.0; AWB run interval */
     td_u16    init_ccm[OT_ISP_CCM_MATRIX_SIZE];
 } ot_isp_awb_sensor_default;
 

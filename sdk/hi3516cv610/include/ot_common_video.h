@@ -206,6 +206,14 @@ typedef enum {
     OT_PIXEL_FORMAT_U64C1,
     OT_PIXEL_FORMAT_S64C1,
 
+    /*
+     * AD data format for raw pipe
+     * When MIPI is connected, VI Pipe receives package yuv422 (actual data) in raw16 format
+     * When BT656 is connected, VI Pipe receives package yuv422 in raw8 format, the number of line
+     * direction pixels is doubled, eg: 3840*1080(raw8) indicate 1920*1080(package yuv422)
+     */
+    OT_PIXEL_FORMAT_RGB_BAYER_16BPP_INDICATE_YUYV_PACKAGE_422,
+    OT_PIXEL_FORMAT_RGB_BAYER_8BPP_INDICATE_UYVY_PACKAGE_422,
     OT_PIXEL_FORMAT_BUTT
 } ot_pixel_format;
 
@@ -447,7 +455,7 @@ typedef struct {
          * RW; Free rotation attribute.
          * AUTO:ot_rotation_type:OT_ROTATION_ANG_FREE, OT_ROTATION_ANG_FREE_HP;
          */
-        ot_free_rotation_attr rotation_free;
+        ot_free_rotation_attr rotation_free; /* Not supported for Hi3516CV610 */
     };
 } ot_rotation_attr;
 
@@ -988,23 +996,28 @@ typedef struct {
     td_u16 sfn1_1; /* RW; Range: [0,   8]; Filter selection for different image areas based on sth1_0~3. */
     td_u16 sfn2_1; /* RW; Range: [0,   8]; Filter selection for different image areas based on sth1_0~3. */
     td_u16 sfn3_1; /* RW; Range: [0,   8]; Filter selection for different image areas based on sth1_0~3. */
-    td_u8 sfn6_0;  /* RW; Range: [0,   8]; Filter selection for No. 6 filter. */
-    td_u8 sfn6_1;  /* RW; Range: [0,   8]; Filter selection for No. 6 filter. */
-    td_u8 sfn7_0;  /* RW; Range: [0,   8]; Filter selection for No. 7 filter. */
-    td_u8 sfn7_1;  /* RW; Range: [0,   8]; Filter selection for No. 7 filter. */
-    td_u8 sfn8_0;  /* RW; Range: [0,   8]; Filter selection for No. 8 filter. */
-    td_u8 sfn8_1;  /* RW; Range: [0,   8]; Filter selection for No. 8 filter. */
+    td_u8 sfn6_0;  /* RW; Range: [0,   5]; Filter selection for No. 6 filter. */
+    td_u8 sfn6_1;  /* RW; Range: [0,   5]; Filter selection for No. 6 filter. */
+    td_u8 sfn7_0;  /* RW; Range: [0,   5]; Filter selection for No. 7 filter. */
+    td_u8 sfn7_1;  /* RW; Range: [0,   5]; Filter selection for No. 7 filter. */
+    td_u8 sfn8_0;  /* RW; Range: [0,   5]; Filter selection for No. 8 filter. */
+    td_u8 sfn8_1;  /* RW; Range: [0,   5]; Filter selection for No. 8 filter. */
 } ot_nr_v2_sfy;    /*   nry1   nry2   nry3    */
 
 typedef struct {
     td_u8 tfs0 : 4;   /* RW;         Range: [0,  15]; The NR strength for temporal filtering. */
     td_u8 tfs1 : 4;   /* RW;         Range: [0,  15]; The NR strength for temporal filtering. */
     td_u8 tfs2 : 4;   /* RW;         Range: [0,  15]; The NR strength for temporal filtering. */
-    td_u8 ref_en : 1; /* tfs0,tfs1;          Range: [0,  15]; The NR strength for temporal filtering. */
+    td_u8 ref_en : 1; /* RW;         Range: [0,  1]; The switch for temporal filtering. */
     td_u8 _rb_ : 3;
     td_u8 tss0;   /* RW;         Range: [0,  31]; The NR strength for spatial filtering. */
     td_u8 tss1;   /* RW;         Range: [0,  31]; The NR strength for spatial filtering. */
     td_u8 tss2;   /* RW;         Range: [0,  31]; The NR strength for spatial filtering. */
+    td_u8 tfr0[6];      /* RW; Range: [0,  31]; The temporal NR strength control for background (static) area. */
+    td_u8 tfr1[6];      /* RW; Range: [0,  31]; The temporal NR strength control for background (static) area. */
+    td_u8 tfs0_mot[17];   /* RW; Range: [0,  16];  */
+    td_u8 tfs1_mot[17];   /* RW; Range: [0,  16];  */
+    td_u8 tfs_mode;    /* RW; Range: [0,  1];  */
 } ot_nr_v2_tfy;       /*  nry1  nry2  */
 
 typedef struct {
@@ -1018,10 +1031,11 @@ typedef struct {
 
 typedef struct {
     td_u16 tfs;    /* RW;         Range: [0,  15]; The NR strength for temporal filtering. */
-    td_u16 math : 8;  /* RW;   Range: [0, 64]; The high threshold for motion detection. */
-    td_u16 mathd : 8; /* RW;   Range: [0, 64]; The low threshold for motion detection. */
+    td_u16 math : 8;  /* RW;   Range: [0, 255]; The high threshold for motion detection. */
+    td_u16 mathd : 8; /* RW;   Range: [0, 255]; The low threshold for motion detection. */
     td_u8 mabw;   /* RW;   Range: [0,   2]; The window size for motion detection. */
-    td_u8 tdz;
+    td_u8 tdz;    /* RW;   Range: [0, 255]; The deadzone for motion detection. */
+    td_u8 tfs_mot[17];   /* RW; Range: [0,  16];  */
 } ot_nr_v2_mdy0; /* nry0  */
 
 typedef struct {
@@ -1053,6 +1067,7 @@ typedef struct {
     td_u8 sf_cor[17];    /* RW;   Range: [0, 63];   */
     td_u8 sf5_cor[17];    /* RW;   Range: [0, 63];   */
     td_u8 sf_mot[17];    /* RW;   Range: [0, 16];   */
+    td_u8 sf5_mot[17];    /* RW;   Range: [0, 16];   */
     td_u8 var_by_bri[17]; /* RW;   Range: [0, 63];  */
     td_u8 sf_bld[17];       /* RW;   Range: [0, 63]; The blending strength for No.6, No.7 and No.8 filter.  */
 } ot_nr_v2_sfy_lut;       /*  nry2   nry3  */
@@ -1082,6 +1097,9 @@ typedef struct {
     td_u8 sfs2_coarse_f; /* RW; Range: [0, 31];  The background NR strength parameters for NO.2 filter. */
     td_u8 sfs2_fine_f;   /* RW; Range: [0, 16];  The foreground NR strength parameters for NO.2 filter */
     td_u8 sfs2_fine_b;   /* RW; Range: [0, 16];  The background NR strength parameters for NO.2 filter */
+    td_u8 sfs2_mot[16];   /* RW; Range: [0,  16]; The motion mapping function based on motion map. */
+    td_u16 sfs2_sat[20];  /* RW; Range: [0,  1023]; The motion mapping function based on motion map. */
+    td_u8 sfs2_mode;      /* RW; Range: [0,  1];  */
 } ot_nr_v2_nrc1;
 
 typedef struct {

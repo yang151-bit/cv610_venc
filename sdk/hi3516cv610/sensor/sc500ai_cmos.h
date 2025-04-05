@@ -8,6 +8,7 @@
 #include "ot_common_isp.h"
 #include "ot_sns_ctrl.h"
 #include "securec.h"
+#include "ot_math.h"
 
 #ifdef __cplusplus
 #if __cplusplus
@@ -51,10 +52,6 @@ extern "C" {
 #define SC500AI_ADDR_BYTE   2
 #define SC500AI_DATA_BYTE   1
 
-/* common I2C bus config */
-#define I2C_DEV_FILE_NUM     16
-#define I2C_BUF_NUM          8
-
 /****************************************************************************
  * sensor lines configs                                                     *
  ****************************************************************************/
@@ -62,7 +59,7 @@ extern "C" {
  #define SC500AI_INCREASE_LINES 0  /* make real fps less than stand fps because NVR require */
 /* linear mode */
 #define SC500AI_FULL_LINES_MAX_LINEAR  0x4074 /* 0x4074 = 16500 = Min:3fps */
-#define SC500AI_VMAX_VAL_LINEAR 1650         /* linear init sequence e.g. 0x380e, 0x06, 0x380f, 0x72 */
+#define SC500AI_VMAX_VAL_LINEAR 1650         /* linear init sequence e.g. 0x380e, 0x06, 0x380f, 0x58 */
 #define SC500AI_VMAX_VAL_LINEAR_100 1305     /* linear init sequence e.g. 0x380e, 0x03, 0x380f, 0x43 */
 #define SC500AI_VMAX_VAL_LINEAR_90 835       /* linear init sequence e.g. 0x380e, 0x03, 0x380f, 0x43 */
 #define SC500AI_VMAX_LINEAR     (SC500AI_VMAX_VAL_LINEAR + SC500AI_INCREASE_LINES)
@@ -89,17 +86,18 @@ extern "C" {
 #define SC500AI_WIDTH_2TO1_LINE_WDR 2880
 #define SC500AI_HEIGHT_2TO1_LINE_WDR 1620
 #define SC500AI_MODE_2TO1_LINE_WDR 0
+#define SC500AI_EXP_Y 0x65B
 
 #define SC500AI_FRAME_RATE_MIN			0x8CA0 /* Min:2.5fps */
 /****************************************************************************
  * sensor ae configs                                                        *
  ****************************************************************************/
  /* linear mode */
-#define SC450AI_AGAIN_MIN    1024
-#define SC450AI_AGAIN_MAX    24645
+#define SC500AI_AGAIN_MIN    1024
+#define SC500AI_AGAIN_MAX    24645
 
-#define SC450AI_DGAIN_MIN    1024
-#define SC450AI_DGAIN_MAX    16256
+#define SC500AI_DGAIN_MIN    1024
+#define SC500AI_DGAIN_MAX    16256
 
 #define INT_TIME_ACCURACY_LINEAR  1
 #define INT_TIME_ACCURACY_WDR     4
@@ -115,7 +113,7 @@ extern "C" {
 #define FL_OFFSET_LINEAR                10
 #define FL_OFFSET_WDR_LONG              18
 #define FL_OFFSET_WDR_SHORT             14
-#define SC500AI_SEXP_MAX_DEFAULT        0x184
+#define SC500AI_SEXP_MAX_DEFAULT        16
  /****************************************************************************
  * sensor awb calibrate configs                                             *
  ****************************************************************************/
@@ -145,7 +143,7 @@ extern "C" {
 #define FLICKER_FREQ            (50 * 256)  /* light flicker freq: 50Hz, accuracy: 256 */
 
 #define INIT_EXP_DEFAULT_LINEAR   148859
-#define INIT_EXP_DEFAULT_WDR       16462
+#define INIT_EXP_DEFAULT_WDR       66462
 
 #define MAX_INT_TIME_TARGET        65535
 
@@ -181,21 +179,9 @@ typedef enum {
     SC500AI_5M_30FPS_10BIT_LINEAR_MODE = 0,
     SC500AI_5M_30FPS_10BIT_2TO1_VC_MODE,
     SC500AI_1080P_100FPS_10BIT_LINEAR_MODE,
-    SC500AI_800P_60FPS_10BIT_LINEAR_MODE,
+    SC500AI_800P_90FPS_10BIT_LINEAR_MODE,
     SC500AI_MODE_MAX
 } sc500ai_res_mode;
-
-typedef struct {
-    td_u32      ver_lines;
-    td_u32      max_ver_lines;
-    td_float    max_fps;
-    td_float    min_fps;
-    td_u32      width;
-    td_u32      height;
-    td_u8       sns_mode;
-    ot_wdr_mode wdr_mode;
-    const char *mode_name;
-} sc500ai_video_mode_tbl;
 
 typedef enum {
     EXPO_L_IDX = 0,
@@ -231,15 +217,12 @@ typedef enum {
 	WDR_REG_MAX_IDX
 }sc500ai_wdr_reg_index;
 
-ot_isp_sns_state *sc500ai_get_ctx(ot_vi_pipe vi_pipe);
-ot_isp_sns_commbus *sc500ai_get_bus_info(ot_vi_pipe vi_pipe);
+typedef struct {
+    td_u32 dec[OT_ISP_WDR_MAX_FRAME_NUM];
+    td_u32 inc[OT_ISP_WDR_MAX_FRAME_NUM];
+} time_step;
 
-td_void sc500ai_init(ot_vi_pipe vi_pipe);
-td_void sc500ai_exit(ot_vi_pipe vi_pipe);
-td_void sc500ai_standby(ot_vi_pipe vi_pipe);
-td_void sc500ai_restart(ot_vi_pipe vi_pipe);
-td_s32  sc500ai_write_register(ot_vi_pipe vi_pipe, td_u32 addr, td_u32 data);
-td_s32  sc500ai_read_register(ot_vi_pipe vi_pipe, td_u32 addr);
+ot_isp_sns_obj *sc500ai_get_obj(td_void);
 
 #ifdef __cplusplus
 #if __cplusplus

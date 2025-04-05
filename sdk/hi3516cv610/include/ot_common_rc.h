@@ -57,79 +57,80 @@ typedef enum {
 } ot_venc_rc_qpmap_mode;
 
 typedef struct {
-    td_u32 gop;
-    td_u32 src_frame_rate;
-    td_u32 dst_frame_rate;
-    td_u32 i_qp;
-    td_u32 p_qp;
-    td_u32 b_qp;
+    td_u32 gop; /* RW; range:[1, 65536]; */
+    td_u32 src_frame_rate; /* RW; range:[1, 240]; */
+    td_u32 dst_frame_rate; /* RW; range:[1/64, src_frame_rate]; */
+    td_u32 i_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32 p_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32 b_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
 } ot_venc_h264_fixqp;
 
 typedef struct {
-    td_u32 gop;
-    td_u32 stats_time;
-    td_u32 src_frame_rate;
-    td_u32 dst_frame_rate ;
-    td_u32 bit_rate;
-    td_u32 vbv_buf_delay;
+    td_u32 gop; /* RW; range:[1, 65536]; */
+    td_u32 stats_time; /* RW; range:[1, 60]; */
+    td_u32 src_frame_rate; /* RW; range:[1, 240]; */
+    td_u32 dst_frame_rate; /* RW; range:[1/64, src_frame_rate]; */
+    td_u32 bit_rate; /* RW; range:[OT_VENC_MIN_BITRATE, OT_VENC_MAX_BITRATE]; */
+    td_u32 vbv_buf_delay; /* RW; range:[1, 100]; */
 } ot_venc_h264_abr;
 
 typedef struct {
-    td_u32 gop;
-    td_u32 stats_time;
-    td_u32 src_frame_rate;
-    td_u32 dst_frame_rate;
-    td_u32 bit_rate;
+    td_u32 gop; /* RW; range:[1, 65536]; */
+    td_u32 stats_time; /* RW; range:[1, 60]; */
+    td_u32 src_frame_rate; /* RW; range:[1, 240]; */
+    td_u32 dst_frame_rate; /* RW; range:[1/64, src_frame_rate]; */
+    td_u32 bit_rate; /* RW; range:[OT_VENC_MIN_BITRATE, OT_VENC_MAX_BITRATE]; */
 } ot_venc_h264_cbr;
 
 typedef struct {
-    td_u32 gop;
-    td_u32 stats_time;
-    td_u32 src_frame_rate;
-    td_u32 dst_frame_rate;
-    td_u32 max_bit_rate;
+    td_u32 gop; /* RW; range:[1, 65536]; */
+    td_u32 stats_time; /* RW; range:[1, 60]; */
+    td_u32 src_frame_rate; /* RW; range:[1, 240]; */
+    td_u32 dst_frame_rate; /* RW; range:[1/64, src_frame_rate]; */
+    td_u32 max_bit_rate; /* RW; range:[OT_VENC_MIN_BITRATE, OT_VENC_MAX_BITRATE]; */
 } ot_venc_h264_vbr;
 
 typedef struct {
-    td_u32 gop;
-    td_u32 stats_time;
-    td_u32 src_frame_rate;
-    td_u32 dst_frame_rate;
-    td_u32 max_bit_rate;
-    td_u32 short_term_stats_time;
-    td_u32 long_term_stats_time;
-    td_u32 long_term_max_bit_rate;
-    td_u32 long_term_min_bit_rate;
+    td_u32 gop; /* RW; range:[1, 65536]; */
+    td_u32 stats_time; /* RW; range:[1, 60]; */
+    td_u32 src_frame_rate; /* RW; range:[1, 240]; */
+    td_u32 dst_frame_rate; /* RW; range:[1/64, src_frame_rate]; */
+    td_u32 max_bit_rate; /* RW; range:[OT_VENC_MIN_BITRATE, OT_VENC_MAX_BITRATE]; */
+    td_u32 short_term_stats_time; /* RW; range:[1, 120]; */
+    td_u32 long_term_stats_time; /* RW; range:[1, 1440]; */
+    td_u32 long_term_max_bit_rate; /* RW; range:[OT_VENC_MIN_BITRATE, max_bit_rate];
+                                        for h265 and svac3: [2, max_bit_rate]; */
+    td_u32 long_term_min_bit_rate; /* RW; range:[0, long_term_max_bit_rate]; */
 } ot_venc_h264_cvbr;
 
 typedef struct {
-    td_u32 gop;
-    td_u32 stats_time;
-    td_u32 src_frame_rate;
-    td_u32 dst_frame_rate;
-    td_u32 max_bit_rate;
+    td_u32 gop; /* RW; range:[1, 65536]; */
+    td_u32 stats_time; /* RW; range:[1, 60]; */
+    td_u32 src_frame_rate; /* RW; range:[1, 240]; */
+    td_u32 dst_frame_rate; /* RW; range:[1/64, src_frame_rate]; */
+    td_u32 max_bit_rate; /* RW; range:[OT_VENC_MIN_BITRATE, OT_VENC_MAX_BITRATE]; */
 } ot_venc_h264_avbr;
 
 typedef struct {
-    td_u32 gop;
-    td_u32 stats_time;
-    td_u32 src_frame_rate;
-    td_u32 dst_frame_rate;
+    td_u32 gop; /* RW; range:[1, 65536]; */
+    td_u32 stats_time; /* RW; range:[1, 60]; */
+    td_u32 src_frame_rate; /* RW; range:[1, 240]; */
+    td_u32 dst_frame_rate; /* RW; range:[1/64, src_frame_rate]; */
 } ot_venc_h264_qpmap;
 
 typedef struct {
-    td_u32 gop;
-    td_u32 stats_time;
-    td_u32 src_frame_rate;
-    td_u32 dst_frame_rate;
-    td_u32 target_bit_rate;
+    td_u32 gop; /* RW; range:[1, 65536]; */
+    td_u32 stats_time; /* RW; range:[1, 60]; */
+    td_u32 src_frame_rate; /* RW; range:[1, 240]; */
+    td_u32 dst_frame_rate; /* RW; range:[1/64, src_frame_rate]; */
+    td_u32 target_bit_rate; /* RW; range:[OT_VENC_MIN_BITRATE, OT_VENC_MAX_BITRATE]; */
 } ot_venc_h264_qvbr;
 
 typedef struct {
-    td_u32 gop;
-    td_u32 stats_time;
-    td_u32 src_frame_rate;
-    td_u32 dst_frame_rate;
+    td_u32 gop; /* RW; range:[1, 65536]; */
+    td_u32 stats_time; /* RW; range:[1, 60]; */
+    td_u32 src_frame_rate; /* RW; range:[1, 240]; */
+    td_u32 dst_frame_rate; /* RW; range:[1/64, src_frame_rate]; */
     ot_venc_rc_qpmap_mode qpmap_mode;
 } ot_venc_h265_qpmap;
 
@@ -151,23 +152,23 @@ typedef ot_venc_h265_cvbr  ot_venc_svac3_cvbr;
 typedef ot_venc_h265_qpmap ot_venc_svac3_qpmap;
 
 typedef struct {
-    td_u32 src_frame_rate;
-    td_u32 dst_frame_rate;
-    td_u32 qfactor;
+    td_u32 src_frame_rate; /* RW; range:[1, 240]; */
+    td_u32 dst_frame_rate; /* RW; range:[1/64, src_frame_rate]; */
+    td_u32 qfactor; /* RW; range:[1, 99]; */
 } ot_venc_mjpeg_fixqp;
 
 typedef struct {
-    td_u32 stats_time;
-    td_u32 src_frame_rate;
-    td_u32 dst_frame_rate;
-    td_u32 bit_rate;
+    td_u32 stats_time; /* RW; range:[1, 60]; */
+    td_u32 src_frame_rate; /* RW; range:[1, 240]; */
+    td_u32 dst_frame_rate; /* RW; range:[1/64, src_frame_rate]; */
+    td_u32 bit_rate; /* RW; range:[OT_VENC_MIN_BITRATE, OT_VENC_MAX_BITRATE]; */
 } ot_venc_mjpeg_cbr;
 
 typedef struct {
-    td_u32 stats_time;
-    td_u32 src_frame_rate;
-    td_u32 dst_frame_rate;
-    td_u32 max_bit_rate;
+    td_u32 stats_time; /* RW; range:[1, 60]; */
+    td_u32 src_frame_rate; /* RW; range:[1, 240]; */
+    td_u32 dst_frame_rate; /* RW; range:[1/64, src_frame_rate]; */
+    td_u32 max_bit_rate; /* RW; range:[OT_VENC_MIN_BITRATE, OT_VENC_MAX_BITRATE]; */
 } ot_venc_mjpeg_vbr;
 
 typedef struct {
@@ -214,204 +215,204 @@ typedef enum {
 } ot_venc_super_frame_mode;
 
 typedef struct {
-    td_u32  max_p_qp;
-    td_u32  min_p_qp;
-    td_u32  max_i_qp;
-    td_u32  min_i_qp;
-    td_u32  max_vi_qp;
-    td_u32  min_vi_qp;
-    td_s32  max_reencode_times;
-    td_bool qpmap_en;
+    td_u32  max_p_qp; /* RW; range:[0, 51]; */
+    td_u32  min_p_qp; /* RW; range:[0, max_p_qp]; */
+    td_u32  max_i_qp; /* RW; range:[0, 51]; */
+    td_u32  min_i_qp; /* RW; range:[0, max_i_qp]; */
+    td_u32  max_vi_qp; /* RW; range:[0, 51], only use for smartp; */
+    td_u32  min_vi_qp; /* RW; range:[0, 51], only use for smartp; */
+    td_s32  max_reencode_times; /* RW; range:[0, 3]; */
+    td_bool qpmap_en; /* RW; range:[0, 1]; */
 } ot_venc_h264_abr_param;
 
 typedef struct {
-    td_u32  max_i_proportion;
-    td_u32  min_i_proportion;
-    td_u32  max_qp;
-    td_u32  min_qp;
-    td_u32  max_i_qp;
-    td_u32  min_i_qp;
-    td_u32  max_vi_qp;
-    td_u32  min_vi_qp;
-    td_s32  max_reencode_times;
-    td_bool qpmap_en;
+    td_u32  max_i_proportion; /* RW; range:[min_i_proportion, 100]; */
+    td_u32  min_i_proportion; /* RW; range:[1, 100]; */
+    td_u32  max_qp; /* RW; range:[0, 51]; */
+    td_u32  min_qp; /* RW; range:[0, max_qp]; */
+    td_u32  max_i_qp; /* RW; range:[0, 51]; */
+    td_u32  min_i_qp; /* RW; range:[0, max_i_qp]; */
+    td_u32  max_vi_qp; /* RW; range:[0, 51], only use for smartp; */
+    td_u32  min_vi_qp; /* RW; range:[0, 51], only use for smartp; */
+    td_s32  max_reencode_times; /* RW; range:[0, 3]; */
+    td_bool qpmap_en; /* RW; range:[0, 1]; */
 } ot_venc_h264_cbr_param;
 
 typedef struct {
-    td_s32  chg_pos;
-    td_u32  max_i_proportion;
-    td_u32  min_i_proportion;
-    td_s32  max_reencode_times;
-    td_bool qpmap_en;
-    td_u32  max_qp;
-    td_u32  min_qp;
-    td_u32  max_i_qp;
-    td_u32  min_i_qp;
-    td_u32  max_vi_qp;
-    td_u32  min_vi_qp;
+    td_s32  chg_pos; /* RW; range:[50, 100]; */
+    td_u32  max_i_proportion; /* RW; range:[min_i_proportion, 100]; */
+    td_u32  min_i_proportion; /* RW; range:[1, 100]; */
+    td_s32  max_reencode_times; /* RW; range:[0, 3]; */
+    td_bool qpmap_en; /* RW; range:[0, 1]; */
+    td_u32  max_qp; /* RW; range:[0, 51]; */
+    td_u32  min_qp; /* RW; range:[0, max_qp]; */
+    td_u32  max_i_qp; /* RW; range:[0, 51]; */
+    td_u32  min_i_qp; /* RW; range:[0, max_i_qp]; */
+    td_u32  max_vi_qp; /* RW; range:[0, 51], only use for smartp; */
+    td_u32  min_vi_qp; /* RW; range:[0, 51], only use for smartp; */
 } ot_venc_h264_vbr_param;
 
 typedef struct {
-    td_s32  chg_pos;
-    td_u32  max_i_proportion;
-    td_u32  min_i_proportion;
-    td_s32  max_reencode_times;
-    td_bool qpmap_en;
-    td_s32  min_still_percent;
-    td_u32  max_still_qp;
-    td_u32  min_still_psnr;
-    td_u32  max_qp;
-    td_u32  min_qp;
-    td_u32  max_i_qp;
-    td_u32  min_i_qp;
-    td_u32  max_vi_qp;
-    td_u32  min_vi_qp;
-    td_u32  min_qp_delta;
-    td_u32  motion_sensitivity;
-    td_bool save_bitrate_en;
+    td_s32  chg_pos; /* RW; range:[50, 100]; */
+    td_u32  max_i_proportion; /* RW; range:[min_i_proportion, 100]; */
+    td_u32  min_i_proportion; /* RW; range:[1, 100]; */
+    td_s32  max_reencode_times; /* RW; range:[0, 3]; */
+    td_bool qpmap_en; /* RW; range:[0, 1]; */
+    td_s32  min_still_percent; /* RW; range:[5, 100]; */
+    td_u32  max_still_qp; /* RW; range:[min_i_qp, max_i_qp]; */
+    td_u32  min_still_psnr; /* R; invalid, can only be set to 0; */
+    td_u32  max_qp; /* RW; range:[0, 51]; */
+    td_u32  min_qp; /* RW; range:[0, max_qp]; */
+    td_u32  max_i_qp; /* RW; range:[0, 51]; */
+    td_u32  min_i_qp; /* RW; range:[0, max_i_qp]; */
+    td_u32  max_vi_qp; /* RW; range:[0, 51], only use for smartp; */
+    td_u32  min_vi_qp; /* RW; range:[0, 51], only use for smartp; */
+    td_u32  min_qp_delta; /* RW; range:[0, 4]; */
+    td_u32  motion_sensitivity; /* RW; range:[0, 100]; */
+    td_bool save_bitrate_en; /* RW; range:[0, 1]; */
 } ot_venc_h264_avbr_param;
 
 typedef struct {
-    td_u32  max_i_proportion;
-    td_u32  min_i_proportion;
-    td_s32  max_reencode_times;
-    td_bool qpmap_en;
-    td_u32  max_qp;
-    td_u32  min_qp;
-    td_u32  max_i_qp;
-    td_u32  min_i_qp;
-    td_u32  max_vi_qp;
-    td_u32  min_vi_qp;
-    td_s32  max_bit_percent;
-    td_s32  min_bit_percent;
-    td_s32  max_psnr_fluctuate;
-    td_s32  min_psnr_fluctuate;
+    td_u32  max_i_proportion; /* RW; range:[min_i_proportion, 100]; */
+    td_u32  min_i_proportion; /* RW; range:[1, 100]; */
+    td_s32  max_reencode_times; /* RW; range:[0, 3]; */
+    td_bool qpmap_en; /* RW; range:[0, 1]; */
+    td_u32  max_qp; /* RW; range:[min_qp, 51]; */
+    td_u32  min_qp; /* RW; range:[0, 51]; */
+    td_u32  max_i_qp; /* RW; range:[min_i_qp, 51]; */
+    td_u32  min_i_qp; /* RW; range:[0, 51]; */
+    td_u32  max_vi_qp; /* RW; range:[0, 51], only use for smartp; */
+    td_u32  min_vi_qp; /* RW; range:[0, 51], only use for smartp; */
+    td_s32  max_bit_percent; /* RW; range:[min_bit_percent, 180]; */
+    td_s32  min_bit_percent; /* RW; range:[30, 180]; */
+    td_s32  max_psnr_fluctuate; /* RW; range:[min_psnr_fluctuate, 40]; */
+    td_s32  min_psnr_fluctuate; /* RW; range:[18, 40]; */
 } ot_venc_h264_qvbr_param;
 
 typedef struct {
-    td_u32  max_i_proportion;
-    td_u32  min_i_proportion;
-    td_s32  max_reencode_times;
-    td_bool qpmap_en;
-    td_u32  max_qp;
-    td_u32  min_qp;
-    td_u32  max_i_qp;
-    td_u32  min_i_qp;
-    td_u32  max_vi_qp;
-    td_u32  min_vi_qp;
-    td_u32  min_qp_delta;
-    td_u32  max_qp_delta;
-    td_u32  extra_bit_percent;
-    td_u32  long_term_stats_time_unit;
-    td_bool save_bitrate_en;
+    td_u32  max_i_proportion; /* RW; range:[min_i_proportion, 100]; */
+    td_u32  min_i_proportion; /* RW; range:[1, 100]; */
+    td_s32  max_reencode_times; /* RW; range:[0, 3]; */
+    td_bool qpmap_en; /* RW; range:[0, 1]; */
+    td_u32  max_qp; /* RW; range:[min_qp, 51]; */
+    td_u32  min_qp; /* RW; range:[0, 51]; */
+    td_u32  max_i_qp; /* RW; range:[min_i_qp, 51]; */
+    td_u32  min_i_qp; /* RW; range:[0, 51]; */
+    td_u32  max_vi_qp; /* RW; range:[0, 51], only use for smartp; */
+    td_u32  min_vi_qp; /* RW; range:[0, 51], only use for smartp; */
+    td_u32  min_qp_delta; /* RW; range:[0, 4]; */
+    td_u32  max_qp_delta; /* RW; range:[0, 4]; */
+    td_u32  extra_bit_percent; /* RW; range:[0, 1000]; */
+    td_u32  long_term_stats_time_unit; /* RW; range:[1, 1800]; */
+    td_bool save_bitrate_en; /* RW; range:[0, 1]; */
 } ot_venc_h264_cvbr_param;
 
 typedef struct {
-    td_u32 max_qfactor;
-    td_u32 min_qfactor;
+    td_u32 max_qfactor; /* RW; range:[1, 99]; */
+    td_u32 min_qfactor; /* RW; range:[1, max_qfactor]; */
 } ot_venc_mjpeg_cbr_param;
 
 typedef struct {
-    td_s32 chg_pos;
-    td_u32 max_qfactor;
-    td_u32 min_qfactor;
+    td_s32 chg_pos; /* RW; range:[50, 100]; */
+    td_u32 max_qfactor; /* RW; range:[1, 99]; */
+    td_u32 min_qfactor; /* RW; range:[1, max_qfactor]; */
 } ot_venc_mjpeg_vbr_param;
 
 typedef struct {
-    td_u32  max_p_qp;
-    td_u32  min_p_qp;
-    td_u32  max_i_qp;
-    td_u32  min_i_qp;
-    td_u32  max_vi_qp;
-    td_u32  min_vi_qp;
-    td_s32  max_reencode_times;
-    td_bool qpmap_en;
+    td_u32  max_p_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32  min_p_qp; /* RW; range:[0, max_p_qp]; */
+    td_u32  max_i_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32  min_i_qp; /* RW; range:[0, max_i_qp]; */
+    td_u32  max_vi_qp; /* RW; range:[0, 51], for svac3: [0, 63]; only use for smartp; */
+    td_u32  min_vi_qp; /* RW; range:[0, 51], for svac3: [0, 63]; only use for smartp; */
+    td_s32  max_reencode_times; /* RW; range:[0, 3]; */
+    td_bool qpmap_en; /* RW; range:[0, 1]; */
     ot_venc_rc_qpmap_mode qpmap_mode;
 } ot_venc_h265_abr_param;
 
 typedef struct {
-    td_u32  max_i_proportion;
-    td_u32  min_i_proportion;
-    td_u32  max_qp;
-    td_u32  min_qp;
-    td_u32  max_i_qp;
-    td_u32  min_i_qp;
-    td_u32  max_vi_qp;
-    td_u32  min_vi_qp;
-    td_s32  max_reencode_times;
-    td_bool qpmap_en;
+    td_u32  max_i_proportion; /* RW; range:[min_i_proportion, 100]; */
+    td_u32  min_i_proportion; /* RW; range:[1, 100]; */
+    td_u32  max_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32  min_qp; /* RW; range:[0, max_qp]; */
+    td_u32  max_i_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32  min_i_qp; /* RW; range:[0, max_i_qp]; */
+    td_u32  max_vi_qp; /* RW; range:[0, 51], for svac3: [0, 63]; only use for smartp; */
+    td_u32  min_vi_qp; /* RW; range:[0, 51], for svac3: [0, 63]; only use for smartp; */
+    td_s32  max_reencode_times;  /* RW; range:[0, 3]; */
+    td_bool qpmap_en; /* RW; range:[0, 1]; */
     ot_venc_rc_qpmap_mode qpmap_mode;
 } ot_venc_h265_cbr_param;
 
 typedef struct {
-    td_s32  chg_pos;
-    td_u32  max_i_proportion;
-    td_u32  min_i_proportion;
-    td_s32  max_reencode_times;
-    td_u32  max_qp;
-    td_u32  min_qp;
-    td_u32  max_i_qp;
-    td_u32  min_i_qp;
-    td_u32  max_vi_qp;
-    td_u32  min_vi_qp;
-    td_bool qpmap_en;
+    td_s32  chg_pos; /* RW; range:[50, 100]; */
+    td_u32  max_i_proportion; /* RW; range:[min_i_proportion, 100]; */
+    td_u32  min_i_proportion; /* RW; range:[1, 100]; */
+    td_s32  max_reencode_times; /* RW; range:[0, 3]; */
+    td_u32  max_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32  min_qp; /* RW; range:[0, max_qp]; */
+    td_u32  max_i_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32  min_i_qp; /* RW; range:[0, max_i_qp]; */
+    td_u32  max_vi_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; only use for smartp; */
+    td_u32  min_vi_qp; /* RW; range:[0, 51], for svac3: [0, 63]; only use for smartp; */
+    td_bool qpmap_en; /* RW; range:[0, 1]; */
     ot_venc_rc_qpmap_mode qpmap_mode;
 } ot_venc_h265_vbr_param;
 
 typedef struct {
-    td_s32  chg_pos;
-    td_u32  max_i_proportion;
-    td_u32  min_i_proportion;
-    td_s32  max_reencode_times;
-    td_s32  min_still_percent;
-    td_u32  max_still_qp;
-    td_u32  min_still_psnr;
-    td_u32  max_qp;
-    td_u32  min_qp;
-    td_u32  max_i_qp;
-    td_u32  min_i_qp;
-    td_u32  max_vi_qp;
-    td_u32  min_vi_qp;
-    td_u32  min_qp_delta;
-    td_u32  motion_sensitivity;
-    td_bool qpmap_en;
+    td_s32  chg_pos; /* RW; range:[50, 100]; */
+    td_u32  max_i_proportion; /* RW; range:[min_i_proportion, 100]; */
+    td_u32  min_i_proportion; /* RW; range:[1, 100]; */
+    td_s32  max_reencode_times; /* RW; range:[0, 3]; */
+    td_s32  min_still_percent; /* RW; range:[5, 100]; */
+    td_u32  max_still_qp; /* RW; range:[min_i_qp, max_i_qp]; */
+    td_u32  min_still_psnr; /* R; invalid, can only be set to 0 */
+    td_u32  max_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32  min_qp; /* RW; range:[0, max_qp]; */
+    td_u32  max_i_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32  min_i_qp; /* RW; range:[0, max_i_qp]; */
+    td_u32  max_vi_qp; /* RW; range:[0, 51], for svac3: [0, 63]; only use for smartp; */
+    td_u32  min_vi_qp; /* RW; range:[0, 51], for svac3: [0, 63]; only use for smartp; */
+    td_u32  min_qp_delta; /* RW; range:[0, 4]; */
+    td_u32  motion_sensitivity; /* RW; range:[0, 100]; */
+    td_bool qpmap_en; /* RW; range:[0, 1]; */
     ot_venc_rc_qpmap_mode qpmap_mode;
 } ot_venc_h265_avbr_param;
 
 typedef struct {
-    td_u32  max_i_proportion;
-    td_u32  min_i_proportion;
-    td_s32  max_reencode_times;
-    td_bool qpmap_en;
+    td_u32  max_i_proportion; /* RW; range:[min_i_proportion, 100]; */
+    td_u32  min_i_proportion; /* RW; range:[1, 100]; */
+    td_s32  max_reencode_times; /* RW; range:[0, 3]; */
+    td_bool qpmap_en; /* RW; range:[0, 1]; */
     ot_venc_rc_qpmap_mode qpmap_mode;
-    td_u32  max_qp;
-    td_u32  min_qp;
-    td_u32  max_i_qp;
-    td_u32  min_i_qp;
-    td_u32  max_vi_qp;
-    td_u32  min_vi_qp;
-    td_s32  max_bit_percent;
-    td_s32  min_bit_percent;
-    td_s32  max_psnr_fluctuate;
-    td_s32  min_psnr_fluctuate;
+    td_u32  max_qp; /* RW; range:[min_qp, 51]; for svac3: [min_qp, 63]; */
+    td_u32  min_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32  max_i_qp; /* RW; range:[min_i_qp, 51]; for svac3: [min_i_qp, 63]; */
+    td_u32  min_i_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32  max_vi_qp; /* RW; range:[0, 51], for svac3: [0, 63]; only use for smartp; */
+    td_u32  min_vi_qp; /* RW; range:[0, 51], for svac3: [0, 63]; only use for smartp; */
+    td_s32  max_bit_percent; /* RW; range:[min_bit_percent, 180]; */
+    td_s32  min_bit_percent; /* RW; range:[30, 180]; */
+    td_s32  max_psnr_fluctuate; /* RW; range:[min_psnr_fluctuate, 40]; */
+    td_s32  min_psnr_fluctuate; /* RW; range:[18, 40]; */
 } ot_venc_h265_qvbr_param;
 
 typedef struct {
-    td_u32  max_i_proportion;
-    td_u32  min_i_proportion;
-    td_s32  max_reencode_times;
-    td_bool qpmap_en;
+    td_u32  max_i_proportion; /* RW; range:[min_i_proportion, 100]; */
+    td_u32  min_i_proportion; /* RW; range:[1, 100]; */
+    td_s32  max_reencode_times; /* RW; range:[0, 3]; */
+    td_bool qpmap_en; /* RW; range:[0, 1]; */
     ot_venc_rc_qpmap_mode qpmap_mode;
-    td_u32  max_qp;
-    td_u32  min_qp;
-    td_u32  max_i_qp;
-    td_u32  min_i_qp;
-    td_u32  max_vi_qp;
-    td_u32  min_vi_qp;
-    td_u32  min_qp_delta;
-    td_u32  max_qp_delta;
-    td_u32  extra_bit_percent;
-    td_u32  long_term_stats_time_unit;
+    td_u32  max_qp; /* RW; range:[min_qp, 51]; for svac3: [min_qp, 63]; */
+    td_u32  min_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32  max_i_qp; /* RW; range:[min_i_qp, 51]; for svac3: [min_i_qp, 63]; */
+    td_u32  min_i_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u32  max_vi_qp; /* RW; range:[0, 51], for svac3: [0, 63]; only use for smartp; */
+    td_u32  min_vi_qp; /* RW; range:[0, 51], for svac3: [0, 63]; only use for smartp; */
+    td_u32  min_qp_delta; /* RW; range:[0, 4]; */
+    td_u32  max_qp_delta; /* RW; range:[0, 4]; */
+    td_u32  extra_bit_percent; /* RW; range:[0, 1000]; */
+    td_u32  long_term_stats_time_unit; /* RW; range:[1, 1800]; */
 } ot_venc_h265_cvbr_param;
 
 typedef ot_venc_h265_abr_param   ot_venc_svac3_abr_param;
@@ -422,17 +423,20 @@ typedef ot_venc_h265_qvbr_param  ot_venc_svac3_qvbr_param;
 typedef ot_venc_h265_cvbr_param  ot_venc_svac3_cvbr_param;
 
 typedef struct {
-    td_bool detect_scene_chg_en;
-    td_bool adapt_insert_idr_frame_en;
+    td_bool detect_scene_chg_en; /* RW; range:[0, 1]; */
+    td_bool adapt_insert_idr_frame_en; /* RW; range:[0, 1]; */
 }  ot_venc_scene_chg_detect;
 
 typedef struct {
-    td_u32 threshold_i[OT_VENC_TEXTURE_THRESHOLD_SIZE];
-    td_u32 threshold_p[OT_VENC_TEXTURE_THRESHOLD_SIZE];
-    td_u32 threshold_b[OT_VENC_TEXTURE_THRESHOLD_SIZE];
-    td_u32 direction;
-    td_u32 row_qp_delta;
-    td_s32 first_frame_start_qp;
+    td_u32 threshold_i[OT_VENC_TEXTURE_THRESHOLD_SIZE]; /* RW; range:[0, 255]; */
+    td_u32 threshold_p[OT_VENC_TEXTURE_THRESHOLD_SIZE]; /* RW; range:[0, 255]; */
+    td_u32 threshold_b[OT_VENC_TEXTURE_THRESHOLD_SIZE]; /* RW; range:[0, 255]; */
+    td_u32 direction; /* RW; range:[0, 16]; */
+    td_u32 row_qp_delta; /* RW; range:[0, 10]; */
+    td_s32 first_frame_start_qp; /* RW; range:[min_i_qp, max_i_qp] and -1; if first_frame_start_qp is -1,
+                                    the starting QP of the first frame is calculated internally by the
+                                    encoder.if it is another legal value, the value is specified
+                                    by the user as the starting QP of the first frame; */
     ot_venc_scene_chg_detect scene_chg_detect;
     union {
         ot_venc_h264_abr_param  h264_abr_param; /* AUTO:ot_venc_rc_mode:OT_VENC_RC_MODE_H264_ABR; */
@@ -466,10 +470,10 @@ typedef enum {
 } ot_venc_frame_lost_mode;
 
 typedef struct {
-    td_bool enable;
-    td_u32  bit_rate_threshold;
+    td_bool enable; /* RW; range:[0, 1]; */
+    td_u32  bit_rate_threshold; /* RW; range:greater than or equal to 65536 (64k) ; */
     ot_venc_frame_lost_mode mode;
-    td_u32 frame_gap;
+    td_u32 frame_gap; /* RW; range:[0, 65535]; */
 }  ot_venc_frame_lost_strategy;
 
 typedef enum {
@@ -480,14 +484,18 @@ typedef enum {
 
 typedef struct {
     ot_venc_super_frame_mode super_frame_mode;
-    td_u32 i_frame_bits_threshold;
-    td_u32 p_frame_bits_threshold;
-    td_u32 b_frame_bits_threshold;
+    td_u32 i_frame_bits_threshold; /* RW; range:[greater than or equal to 0]; */
+    td_u32 p_frame_bits_threshold; /* RW; range:[greater than or equal to 0]; */
+    td_u32 b_frame_bits_threshold; /* RW; range:[greater than or equal to 0]; */
     ot_venc_reencode_priority reencode_priority;
 } ot_venc_super_frame_strategy;
 
 typedef struct {
-    td_u32 clear_stats_after_set_attr;
+    td_u32 clear_stats_after_set_attr; /* RW; range:[0, 1];
+                                          0: After setting the channel code rate, the frame rate and
+                                          code rate statistics of RC are not cleared;
+                                          1: Clears the statistics of the RC frame rate and bit rate
+                                          after the channel bit rate is set; */
 } ot_venc_rc_adv_param;
 
 typedef struct {
@@ -497,9 +505,9 @@ typedef struct {
 } ot_venc_hierarchical_qp;
 
 typedef struct {
-    td_bool enable;
-    td_s32 strength0;
-    td_s32 strength1;
+    td_bool enable; /* RW; range:[0, 1]; */
+    td_s32 strength0; /* RW; range:[0, 35]; */
+    td_s32 strength1; /* RW; range:[0, 35]; */
 } ot_venc_debreath_effect;
 
 #ifdef __cplusplus

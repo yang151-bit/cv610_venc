@@ -248,31 +248,34 @@ __inline static td_u32 ot_venc_get_pic_info_buf_size(ot_payload_type type, const
     td_u32 pic_info_size;
     td_u32 tmv_size, pme_size, pme_info_size;
     td_u32 width, height;
-
+    td_bool pme_share_en;
     if (ot_venc_check_pic_cfg(type, attr) != TD_TRUE) {
         return 0;
     }
-
+    tmv_size = 0;
     width = attr->pic_buf_attr.width;
     height = attr->pic_buf_attr.height;
+    pme_share_en = (attr->share_buf_en == TD_TRUE) && (attr->svc_version != OT_VENC_SVC_V2);
 
     switch (type) {
         case OT_PT_H264:
-            tmv_size = 0;
             pme_size = ot_venc_get_h264_pme_size(width, height);
-            pme_info_size = (OT_ALIGN_UP(width, 512) / 512) * 16 * (OT_ALIGN_UP(height, 16) / 16);
+            pme_info_size = ot_venc_get_h264_pme_info_size(width, height);
             break;
         case OT_PT_H265:
-        case OT_PT_SVAC3:
-            tmv_size = (OT_ALIGN_UP(width, 32) / 32) * 16 * (OT_ALIGN_UP(height, 32) / 32);
+            tmv_size = ot_venc_get_h265_tmv_size(width, height);
             pme_size = ot_venc_get_h265_pme_size(width, height);
-            pme_info_size = (OT_ALIGN_UP(width, 256) / 256) * 16 * (OT_ALIGN_UP(height, 32) / 32);
+            pme_info_size = ot_venc_get_h265_pme_info_size(width, height);
+            break;
+        case OT_PT_SVAC3:
+            pme_size = ot_venc_get_svac3_pme_size(width, height);
+            pme_info_size = ot_venc_get_svac3_pme_info_size(width, height);
             break;
         default:
             return 0;
     }
 
-    if (attr->share_buf_en == TD_TRUE) {
+    if (attr->share_buf_en == TD_TRUE && pme_share_en == TD_TRUE) {
         pic_info_size = tmv_size + pme_info_size;
     } else {
         pic_info_size = tmv_size + pme_size + pme_info_size;

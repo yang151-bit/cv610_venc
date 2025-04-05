@@ -55,6 +55,9 @@ extern "C"{
 #define OT_VENC_JPEG_QT_COEF_NUM 64
 #define OT_VENC_MJPEG_QT_COEF_NUM OT_VENC_JPEG_QT_COEF_NUM
 #define OT_VENC_QP_HIST_NUM 52
+#define OT_VENC_H264_QP_HIST_NUM OT_VENC_QP_HIST_NUM
+#define OT_VENC_H265_QP_HIST_NUM OT_VENC_QP_HIST_NUM
+#define OT_VENC_SVAC3_QP_HIST_NUM 64
 #define OT_VENC_MAX_ROI_NUM 8
 #define OT_VENC_MAX_JPEG_ROI_NUM 16
 #define OT_VENC_MAX_SSE_NUM 8
@@ -269,7 +272,7 @@ typedef struct {
     td_u32 sse_lcu_cnt;
     td_u64 sse_sum;
     ot_venc_sse_info sse_info[OT_VENC_MAX_SSE_NUM];
-    td_u32 qp_hist[OT_VENC_QP_HIST_NUM];
+    td_u32 qp_hist[OT_VENC_H264_QP_HIST_NUM];
     td_u32 move_scene16x16_num;
     td_u32 move_scene_bits;
     td_u32 deblur_near_bg_num;
@@ -285,7 +288,7 @@ typedef struct {
     td_u32             sse_lcu_cnt;
     td_u64             sse_sum;
     ot_venc_sse_info   sse_info[OT_VENC_MAX_SSE_NUM];
-    td_u32             qp_hist[OT_VENC_QP_HIST_NUM];
+    td_u32             qp_hist[OT_VENC_H265_QP_HIST_NUM];
     td_u32             move_scene32x32_num;
     td_u32             move_scene_bits;
     td_u32             deblur_near_bg_num;
@@ -301,7 +304,7 @@ typedef struct {
     td_u32             sse_lcu_cnt;
     td_u64             sse_sum;
     ot_venc_sse_info   sse_info[OT_VENC_MAX_SSE_NUM];
-    td_u32             qp_hist[OT_VENC_QP_HIST_NUM];
+    td_u32             qp_hist[OT_VENC_SVAC3_QP_HIST_NUM];
     td_u32             move_scene32x32_num;
     td_u32             move_scene_bits;
     td_u32             deblur_near_bg_num;
@@ -445,31 +448,31 @@ typedef enum {
 } ot_venc_gop_mode;
 
 typedef struct {
-    td_s32 ip_qp_delta;
+    td_s32 ip_qp_delta; /* RW; range:[-10, 30]; */
 } ot_venc_gop_normal_p;
 
 typedef struct {
-    td_u32 sp_interval;
-    td_s32 sp_qp_delta;
-    td_s32 ip_qp_delta;
+    td_u32 sp_interval; /* RW; range:[0, 1) or (1, gop-1], gop is the I frame interval; */
+    td_s32 sp_qp_delta; /* RW; range:[-10, 30]; */
+    td_s32 ip_qp_delta; /* RW; range:[-10, 30]; */
 } ot_venc_gop_dual_p;
 
 typedef struct {
-    td_u32 bg_interval;
-    td_s32 bg_qp_delta;
-    td_s32 vi_qp_delta;
+    td_u32 bg_interval; /* RW; range:[gop, 65536] and must be an integer multiple of gop; */
+    td_s32 bg_qp_delta; /* RW; range:[-10, 30]; */
+    td_s32 vi_qp_delta; /* RW; range:[-10, 30]; */
 } ot_venc_gop_smart_p;
 
 typedef struct {
-    td_u32 bg_interval;
-    td_s32 bg_qp_delta;
-    td_s32 vi_qp_delta;
+    td_u32 bg_interval; /* RW; range:[gop, 65536] and must be an integer multiple of gop; */
+    td_s32 bg_qp_delta; /* RW; range:[-10, 30]; */
+    td_s32 vi_qp_delta; /* RW; range:[-10, 30]; */
 } ot_venc_gop_adv_smart_p;
 
 typedef struct {
-    td_u32 b_frame_num;
-    td_s32 b_qp_delta;
-    td_s32 ip_qp_delta;
+    td_u32 b_frame_num; /* RW; range:[1, 3]; */
+    td_s32 b_qp_delta; /* RW; range:[-10, 30]; */
+    td_s32 ip_qp_delta; /* RW; range:[-10, 30]; */
 } ot_venc_gop_bipred_b;
 
 typedef enum {
@@ -481,11 +484,11 @@ typedef enum {
 } ot_venc_crr_recode_strategy;
 
 typedef struct {
-    td_u32 bg_interval;
-    td_s32 bg_qp_delta;
-    td_s32 vi_qp_delta;
-    td_s32 crr_split_num;
-    td_s32 crr_delay_num;
+    td_u32 bg_interval; /* RW; range:[gop, 65536] and must be an integer multiple of gop; */
+    td_s32 bg_qp_delta; /* RW; range:[-10, 30]; */
+    td_s32 vi_qp_delta; /* RW; range:[-10, 30]; */
+    td_s32 crr_split_num; /* RW; range:[1, gop); */
+    td_s32 crr_delay_num; /* RW; formula: (crr_split_num-1) * (crr_delay_num+1) + 2 < gop; */
     ot_venc_crr_recode_strategy strategy;
 } ot_venc_gop_smart_crr;
 
@@ -521,6 +524,8 @@ typedef struct {
     td_bool is_jpeg_snap_end;
     td_u64 release_pic_pts;
     ot_venc_stream_info stream_info;
+    td_u32 discard_pics;
+    td_u32 stream_buf_full_cnt;
 } ot_venc_chn_status;
 
 typedef struct {
@@ -528,12 +533,16 @@ typedef struct {
 } ot_venc_h264_intra_pred;
 
 typedef struct {
-    td_u32  intra_trans_mode;
-    td_u32  inter_trans_mode;
-    td_bool scaling_list_valid;
-    td_u8   inter_scaling_list8x8[OT_VENC_SCALING_LIST_SIZE_64];
-    td_u8   intra_scaling_list8x8[OT_VENC_SCALING_LIST_SIZE_64];
-    td_s32  chroma_qp_index_offset;
+    td_u32  intra_trans_mode; /* R; 0: 4x4, 8x8 conversion, high profile, svc-t are all supported;
+                                    1: 4x4 conversion, baseline, main, high profile, svc-t are all supported;
+                                    2: 8x8 conversion, high profile supports it; */
+    td_u32  inter_trans_mode; /* R; 0: 4x4, 8x8 conversion, high profile, svc-t are all supported;
+                                    1: 4x4 conversion, baseline, main, high profile, svc-t are all supported;
+                                    2: 8x8 conversion, high profile supports it; */
+    td_bool scaling_list_valid; /* R; range:[0, 1]; only supports configuration 0; */
+    td_u8   inter_scaling_list8x8[OT_VENC_SCALING_LIST_SIZE_64]; /* R; range:[1, 255]; */
+    td_u8   intra_scaling_list8x8[OT_VENC_SCALING_LIST_SIZE_64]; /* R; range:[1, 255]; */
+    td_s32  chroma_qp_index_offset; /* RW; range:[-12, 12]; */
 } ot_venc_h264_trans;
 
 typedef struct {
@@ -605,7 +614,7 @@ typedef struct {
 } ot_venc_h265_vui;
 
 typedef struct {
-    td_u32 qfactor;
+    td_u32 qfactor; /* RW; range:[1, 99]; */
     td_u8  y_qt[OT_VENC_JPEG_QT_COEF_NUM];
     td_u8  cb_qt[OT_VENC_JPEG_QT_COEF_NUM];
     td_u8  cr_qt[OT_VENC_JPEG_QT_COEF_NUM];
@@ -622,10 +631,12 @@ typedef struct {
 } ot_venc_mjpeg_param;
 
 typedef struct {
-    td_u32  idx;
-    td_bool enable;
-    td_bool is_abs_qp;
-    td_s32  qp;
+    td_u32  idx; /* RW; range:[0, 7]; */
+    td_bool enable; /* RW; range:[0, 1]; */
+    td_bool is_abs_qp; /* RW; range:[0, 1]; */
+    td_s32  qp; /* RW; when is_abs_qp is TD_FALSE, Range: for H264 and H265: [-51, 51], for SVAC3: [-63, 63];
+                 * when is_abs_qp is TD_TRUE, Range: for H264 and H265: [0, 51], for SVAC3: [0, 63];
+                 */
     ot_rect rect;
 } ot_venc_roi_attr;
 
@@ -660,14 +671,16 @@ typedef struct {
 } ot_venc_jpeg_roi_adv_attr;
 
 typedef struct {
-    td_s32 src_frame_rate;
-    td_s32 dst_frame_rate;
+    td_s32 src_frame_rate; /* RW; range:-1 or [1, 65536); */
+    td_s32 dst_frame_rate; /* RW; range:-1 or [0, src_frame_rate]; */
 } ot_venc_roi_bg_frame_rate;
 
 typedef struct {
-    td_u32  base;
-    td_u32  enhance;
-    td_bool pred_en;
+    td_u32  base; /* RW; range:greater than 0; */
+    td_u32  enhance; /* RW; range:[0, 255]; */
+    td_bool pred_en; /* RW; range:[0, 1]; */
+    td_bool base_qp_delta_en; /* RW; range:[0, 1]; */
+    td_s32  base_qp_delta; /* RW; range:[-10, 10]; */
 } ot_venc_ref_param;
 
 typedef enum {
@@ -679,7 +692,7 @@ typedef enum {
 } ot_venc_jpeg_dering_level;
 
 typedef struct {
-    td_u32  dering_en;
+    td_u32  dering_en; /* RW; range:[0, 1]; */
     ot_venc_jpeg_dering_level dering_level;
 } ot_venc_jpeg_dering_attr;
 
@@ -701,21 +714,21 @@ typedef struct {
 } ot_venc_h265_pu;
 
 typedef struct {
-    td_s32  cb_qp_offset;
-    td_s32  cr_qp_offset;
-    td_bool scaling_list_en;
-    td_bool scaling_list_tu4_valid;
-    td_u8   inter_scaling_list4x4[2][OT_VENC_SCALING_LIST_SIZE_16]; // 2: 0 luma; 1 chroma
-    td_u8   intra_scaling_list4x4[2][OT_VENC_SCALING_LIST_SIZE_16]; // 2: 0 luma; 1 chroma
-    td_bool scaling_list_tu8_valid;
-    td_u8   inter_scaling_list8x8[2][OT_VENC_SCALING_LIST_SIZE_64]; // 2: 0 luma; 1 chroma
-    td_u8   intra_scaling_list8x8[2][OT_VENC_SCALING_LIST_SIZE_64]; // 2: 0 luma; 1 chroma
-    td_bool scaling_list_tu16_valid;
-    td_u8   inter_scaling_list16x16[2][OT_VENC_SCALING_LIST_SIZE_64]; // 2: 0 luma; 1 chroma
-    td_u8   intra_scaling_list16x16[2][OT_VENC_SCALING_LIST_SIZE_64]; // 2: 0 luma; 1 chroma
-    td_bool scaling_list_tu32_valid;
-    td_u8   inter_scaling_list32x32[OT_VENC_SCALING_LIST_SIZE_64];
-    td_u8   intra_scaling_list32x32[OT_VENC_SCALING_LIST_SIZE_64];
+    td_s32  cb_qp_offset; /* RW; range:[-12, 12]; */
+    td_s32  cr_qp_offset; /* RW; range:[-12, 12]; */
+    td_bool scaling_list_en; /* R; range:[0, 1]; */
+    td_bool scaling_list_tu4_valid; /* R; range:[0, 1]; */
+    td_u8   inter_scaling_list4x4[2][OT_VENC_SCALING_LIST_SIZE_16]; /* R; 2: 0 luma; 1 chroma  range:16; */
+    td_u8   intra_scaling_list4x4[2][OT_VENC_SCALING_LIST_SIZE_16]; /* R; 2: 0 luma; 1 chroma  range:16; */
+    td_bool scaling_list_tu8_valid; /* R; range:[0, 1]; */
+    td_u8   inter_scaling_list8x8[2][OT_VENC_SCALING_LIST_SIZE_64]; /* R; 2: 0 luma; 1 chroma  range:[1, 255]; */
+    td_u8   intra_scaling_list8x8[2][OT_VENC_SCALING_LIST_SIZE_64]; /* R; 2: 0 luma; 1 chroma  range:[1, 255]; */
+    td_bool scaling_list_tu16_valid; /* R; range:[0, 1]; */
+    td_u8   inter_scaling_list16x16[2][OT_VENC_SCALING_LIST_SIZE_64]; /* R; 2: 0 luma; 1 chroma  range:[1, 255]; */
+    td_u8   intra_scaling_list16x16[2][OT_VENC_SCALING_LIST_SIZE_64]; /* R; 2: 0 luma; 1 chroma  range:[1, 255]; */
+    td_bool scaling_list_tu32_valid; /* R; range:[0, 1]; */
+    td_u8   inter_scaling_list32x32[OT_VENC_SCALING_LIST_SIZE_64]; /* R; range:[1, 255]; */
+    td_u8   intra_scaling_list32x32[OT_VENC_SCALING_LIST_SIZE_64]; /* R; range:[1, 255]; */
 } ot_venc_h265_trans;
 
 typedef struct {
@@ -742,10 +755,15 @@ typedef enum {
 } ot_venc_intra_refresh_mode;
 
 typedef struct {
-    td_bool enable;
+    td_bool enable; /* RW; range:[0, 1]; */
     ot_venc_intra_refresh_mode mode;
-    td_u32 refresh_num;
-    td_u32 request_i_qp;
+    td_u32 refresh_num; /* RW; indicates the number of rows or columns of I macroblock refresh;
+                                H264: row: refresh_num*max_refresh_frame_in_gop >= (pic_height + 15) / 16;
+                                column: refresh_num*max_refresh_frame_in_gop >= (pic_width + 15) / 16;
+                        H265/SVAC3: row: refresh_num*max_refresh_frame_in_gop >= (pic_height + lcu_size - 1) / lcu_size
+                                column: refresh_num*Max_refresh_frame_in_gop >= (pic_width + lcu_size - 1) / lcu_size
+                                                */
+    td_u32 request_i_qp; /* RW; range: [0, 51]; for svac3: [0, 63]; */
 } ot_venc_intra_refresh;
 
 typedef enum {
@@ -820,8 +838,15 @@ typedef struct {
     td_u32  blk_start_qp;
     td_phys_addr_t qpmap_phys_addr;
     td_phys_addr_t skip_weight_phys_addr;
-    ot_venc_frame_type frame_type;
+    ot_venc_frame_type frame_type; /* no use when use mpi_venc_send_qpmap */
 } ot_venc_user_rc_info;
+
+typedef struct {
+    td_u32 width;  /* encode width */
+    td_u32 height; /* encode height */
+    td_u64 pts;  /* used to debug */
+    ot_venc_user_rc_info user_rc_info;
+} ot_venc_user_qpmap;
 
 typedef struct {
     td_bool valid;
@@ -903,21 +928,22 @@ typedef struct {
 } ot_venc_sse_rgn;
 
 typedef struct {
-    td_bool color_to_grey_en;
+    td_bool color_to_grey_en; /* RW; range:[0, 1]; */
     td_u32  priority;
     td_u32  max_stream_cnt;
     td_u32  poll_wake_up_frame_cnt;
     ot_crop_info crop_info;
     ot_frame_rate_ctrl frame_rate;
+    td_u32 in_depth; /* RW; Range: [1, OT_VENC_MAX_IN_DEPTH]; Depth of chn image list. */
 } ot_venc_chn_param;
 
 typedef struct {
-    td_bool enable;
-    td_u32  direction;
-    td_u32  gain;
-    td_u32  offset;
-    td_u32  threshold_p[OT_VENC_TEXTURE_THRESHOLD_SIZE];
-    td_u32  threshold_b[OT_VENC_TEXTURE_THRESHOLD_SIZE];
+    td_bool enable; /* RW; range:[0, 1]; */
+    td_u32  direction; /* RW; range:[0, 16]; */
+    td_u32  gain; /* RW; range:[0, 15]; */
+    td_u32  offset; /* RW; range:[0, 255]; */
+    td_u32  threshold_p[OT_VENC_TEXTURE_THRESHOLD_SIZE]; /* RW; range:[0, 255]; */
+    td_u32  threshold_b[OT_VENC_TEXTURE_THRESHOLD_SIZE]; /* RW; range:[0, 255]; */
 } ot_venc_fg_protect;
 
 typedef enum {
@@ -961,7 +987,7 @@ typedef struct {
 } ot_venc_slice_split;
 
 typedef struct {
-    td_u32 param_set_id; /* Range: for H264: [0, 30]; for H265: [0, 15]; */
+    td_u32 param_set_id; /* RW; range: for H264: [0, 30]; for H265: [0, 15]; */
 } ot_venc_param_set_id;
 
 typedef struct {
@@ -1026,13 +1052,16 @@ typedef struct {
 typedef ot_venc_svc_param ot_venc_svc_param_v1;
 
 typedef struct {
-    td_u32 max_ref_num;
-    td_u32 refresh_interval;
-    td_s32 qp_delta[SVC_RECT_TYPE_BUTT];
+    td_u32 max_ref_num; /* RW; range:[2, 4]; */
+    td_u32 refresh_interval; /* RW; range:[1, 21]; */
+    td_s32 qp_delta[SVC_RECT_TYPE_BUTT]; /* RW; range:[-16, 15]; */
+    /* RW; Range: Hi3516CV608 = [OT_VENC_SVC_ROI_TYPE_RECT];
+    Hi3516CV610 = [OT_VENC_SVC_ROI_TYPE_RECT, OT_VENC_SVC_ROI_TYPE_MASK]. */
     ot_venc_svc_roi_type roi_type;
 } ot_venc_svc_param_v2;
 
 typedef struct {
+    /* RW; Range: Hi3519DV500 = [OT_VENC_SVC_V1]; Hi3516CV610/Hi3516CV608 = [OT_VENC_SVC_V1, OT_VENC_SVC_V2]. */
     ot_venc_svc_version svc_version;
     union {
         ot_venc_svc_param_v1 svc_param_v1; /* AUTO:ot_venc_svc_version:OT_VENC_SVC_V1; */
@@ -1041,27 +1070,27 @@ typedef struct {
 } ot_venc_svc_param_ex;
 
 typedef struct {
-    td_bool deblur_en;
-    td_bool deblur_adaptive_en;
+    td_bool deblur_en; /* RW; range:[0, 1]; */
+    td_bool deblur_adaptive_en; /* RW; range:[0, 1]; */
 } ot_venc_deblur_param;
 
 typedef struct {
-    td_u8 gain;
-    td_u8 offset;
-    td_u8 qp_delta;
-    td_u8 min_qp;
-    td_u8 max_qp;
+    td_u8 gain; /* RW; range:[0, 15]; */
+    td_u8 offset; /* RW; range:[0, 255]; */
+    td_u8 qp_delta; /* RW; range:[0, 15]; */
+    td_u8 min_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u8 max_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
 } ot_venc_deblur_near_bg;
 
 typedef struct {
-    td_u8 qp_delta;
-    td_u8 min_qp;
-    td_u8 max_qp;
+    td_u8 qp_delta; /* RW; range:[0, 15]; */
+    td_u8 min_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
+    td_u8 max_qp; /* RW; range:[0, 51]; for svac3: [0, 63]; */
 } ot_venc_deblur_far_bg;
 
 typedef struct {
-    td_bool near_bg_en;
-    td_bool far_bg_en;
+    td_bool near_bg_en; /* RW; range:[0, 1]; */
+    td_bool far_bg_en; /* RW; range:[0, 1]; */
     ot_venc_deblur_near_bg near_bg;
     ot_venc_deblur_far_bg far_bg;
 } ot_venc_adv_deblur;

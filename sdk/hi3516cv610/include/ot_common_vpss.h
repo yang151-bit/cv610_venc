@@ -118,6 +118,7 @@ typedef struct {
 typedef struct {
     td_bool             is_rotation_input_support;  /* RW; Range: [0, 1]; is a rotation input or not. default false */
     td_bool             is_dis_gyro_support;        /* RW; Range: [0, 1]; is a dis gyro grp or not. default false */
+    td_bool             is_dis_ref_support;         /* RW; Range: [0, 1]; is dis ref or not. default false */
     td_bool             is_motion_denoise_support;  /* RW; Range: [0, 1]; is motion_denoise or not. default false */
     td_u32              max_split_num;              /* RW; Max node number of split. */
     td_u32              max_out_rgn_num;            /* RW; Max region number for fisheye or stitch. */

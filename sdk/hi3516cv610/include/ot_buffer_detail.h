@@ -21,7 +21,7 @@ extern "C" {
 #define OT_MAXI_NUM_LIMIT 30000
 
 #define OT_SEG_RATIO_8BIT_LUMA      1430
-#define OT_SEG_RATIO_8BIT_CHROMA    2000
+#define OT_SEG_RATIO_8BIT_CHROMA    1800
 
 #define OT_SEG_WIDTH_BIT_ALIGN 128
 #define OT_FMU_MIN_BUF_LINE    32
@@ -30,9 +30,8 @@ static td_void ot_common_get_pic_buf_cfg(const ot_pic_buf_attr *buf_attr, ot_vb_
 
 __inline static td_bool ot_common_is_pixel_format_rgb_bayer(ot_pixel_format pixel_format)
 {
-    if ((pixel_format == OT_PIXEL_FORMAT_RGB_BAYER_8BPP) || (pixel_format == OT_PIXEL_FORMAT_RGB_BAYER_10BPP) ||
-        (pixel_format == OT_PIXEL_FORMAT_RGB_BAYER_12BPP) || (pixel_format == OT_PIXEL_FORMAT_RGB_BAYER_14BPP) ||
-        (pixel_format == OT_PIXEL_FORMAT_RGB_BAYER_16BPP)) {
+    if (pixel_format >= OT_PIXEL_FORMAT_RGB_BAYER_8BPP &&
+        pixel_format <= OT_PIXEL_FORMAT_RGB_BAYER_16BPP_L14) {
         return TD_TRUE;
     }
     return TD_FALSE;
@@ -72,6 +71,12 @@ __inline static td_u32 ot_vi_get_raw_bit_width(ot_pixel_format pixel_format)
         case OT_PIXEL_FORMAT_RGB_BAYER_14BPP:
             return 14; /* 14:single pixel width */
         case OT_PIXEL_FORMAT_RGB_BAYER_16BPP:
+        case OT_PIXEL_FORMAT_RGB_BAYER_16BPP_H10:
+        case OT_PIXEL_FORMAT_RGB_BAYER_16BPP_H12:
+        case OT_PIXEL_FORMAT_RGB_BAYER_16BPP_H14:
+        case OT_PIXEL_FORMAT_RGB_BAYER_16BPP_L10:
+        case OT_PIXEL_FORMAT_RGB_BAYER_16BPP_L12:
+        case OT_PIXEL_FORMAT_RGB_BAYER_16BPP_L14:
             return 16; /* 16:single pixel width */
         default:
             return 0;
@@ -147,10 +152,53 @@ __inline static td_void ot_common_get_raw_buf_cfg_with_compress_ratio(const ot_p
     calc_cfg->main_y_size = size;
 }
 
+__inline static td_void ot_common_get_split_raw_buf_cfg_with_compress_ratio(const ot_pic_buf_attr *buf_attr,
+    td_u32 compress_ratio, ot_vb_calc_cfg *calc_cfg)
+{
+    ot_pic_buf_attr buf_attr_tmp = {0};
+    ot_vb_calc_cfg  calc_cfg_tmp = {0};
+
+    if (calc_cfg == TD_NULL) {
+        return;
+    }
+
+    (td_void)memset_s(calc_cfg, sizeof(*calc_cfg), 0, sizeof(*calc_cfg));
+
+    if (buf_attr == TD_NULL) {
+        return;
+    }
+
+    if (memcpy_s(&buf_attr_tmp, sizeof(ot_pic_buf_attr), buf_attr, sizeof(ot_pic_buf_attr)) != EOK) {
+        return;
+    }
+
+    buf_attr_tmp.width = buf_attr_tmp.width - ((buf_attr->width / 2 + 0xff) & 0xFFFFFF00) - 192;
+    buf_attr_tmp.compress_mode = OT_COMPRESS_MODE_LINE;
+    ot_common_get_raw_buf_cfg_with_compress_ratio(&buf_attr_tmp, 0, &calc_cfg_tmp);
+
+    calc_cfg->vb_size += calc_cfg_tmp.vb_size * 2;
+
+    buf_attr_tmp.width = buf_attr->width - buf_attr_tmp.width * 2;
+    buf_attr_tmp.compress_mode = OT_COMPRESS_MODE_NONE;
+    ot_common_get_raw_buf_cfg_with_compress_ratio(&buf_attr_tmp, 0, &calc_cfg_tmp);
+
+    calc_cfg->vb_size += calc_cfg_tmp.vb_size;
+}
+
 __inline static td_void ot_common_get_raw_buf_cfg(const ot_pic_buf_attr *buf_attr, ot_vb_calc_cfg *calc_cfg)
 {
+    if (buf_attr == TD_NULL) {
+        if (calc_cfg != TD_NULL) {
+            (td_void)memset_s(calc_cfg, sizeof(*calc_cfg), 0, sizeof(*calc_cfg));
+        }
+        return;
+    }
     /* use default frame compress ratio */
-    ot_common_get_raw_buf_cfg_with_compress_ratio(buf_attr, 0, calc_cfg);
+    if (buf_attr->width > 3200 && buf_attr->compress_mode == OT_COMPRESS_MODE_LINE) {
+        ot_common_get_split_raw_buf_cfg_with_compress_ratio(buf_attr, 0, calc_cfg);
+    } else {
+        ot_common_get_raw_buf_cfg_with_compress_ratio(buf_attr, 0, calc_cfg);
+    }
 }
 
 __inline static td_bool ot_common_is_pixel_format_package_422(ot_pixel_format pixel_format)
@@ -514,6 +562,40 @@ __inline static td_u32 ot_venc_get_h265_pme_size(td_u32 width, td_u32 height)
     return pme_size;
 }
 
+__inline static td_u32 ot_venc_get_svac3_pme_size(td_u32 width, td_u32 height)
+{
+    return ot_venc_get_h265_pme_size(width, height);
+}
+
+__inline static td_u32 ot_venc_get_h264_pme_info_size(td_u32 width, td_u32 height)
+{
+    td_u32 pme_width = OT_ALIGN_UP(width, 512)  / 512; /* 512: algorithm param */
+    td_u32 pme_height = OT_ALIGN_UP(height, 16) / 16; /* 16: algorithm param */
+
+    return pme_width * pme_height * 16; /* 16: algorithm param */
+}
+
+__inline static td_u32 ot_venc_get_h265_pme_info_size(td_u32 width, td_u32 height)
+{
+    td_u32 pme_width = OT_ALIGN_UP(width, 256) / 256; /* 256: algorithm param */
+    td_u32 pme_height = OT_ALIGN_UP(height, 32) / 32 ; /* 32: algorithm param */
+
+    return pme_width * pme_height * 16; /* 16 algorithm param */
+}
+
+__inline static td_u32 ot_venc_get_svac3_pme_info_size(td_u32 width, td_u32 height)
+{
+    return ot_venc_get_h265_pme_info_size(width, height);
+}
+
+static td_u32 ot_venc_get_h265_tmv_size(td_u32 width, td_u32 pic_height)
+{
+    td_u32 tmv_width = OT_ALIGN_UP(width, 32) / 32; /* 32: algorithm param */
+    td_u32 tmv_height = OT_ALIGN_UP(pic_height, 32) / 32; /* 32: algorithm param */
+
+    return (tmv_width * tmv_height) * 16; /* 16: algorithm param */
+}
+
 __inline static td_u32 ot_venc_get_h264_pic_buf_size(const ot_venc_buf_attr *attr)
 {
     td_u32 y_header_stride, c_header_stride, y_stride, c_stride;
@@ -525,10 +607,12 @@ __inline static td_u32 ot_venc_get_h264_pic_buf_size(const ot_venc_buf_attr *att
     td_bool share_buf;
     td_u32 frame_buf_ratio;
     td_u32 pic_size;
+    td_bool pme_share_en;
 
     width = attr->pic_buf_attr.width;
     height_align = OT_ALIGN_UP(attr->pic_buf_attr.height, 16); /* 16: align */
     share_buf = attr->share_buf_en;
+    pme_share_en = attr->share_buf_en && (attr->svc_version != OT_VENC_SVC_V2);
     frame_buf_ratio = attr->frame_buf_ratio;
 
     y_header_stride = OT_ALIGN_UP(width, 1024) / 1024 *64; /* 1024 64: algorithm param */
@@ -559,9 +643,13 @@ __inline static td_u32 ot_venc_get_h264_pic_buf_size(const ot_venc_buf_attr *att
     if (share_buf == TD_FALSE) {
         pic_size = y_header_size + c_header_size + y_size + c_size;
     } else {
-        pme_size += pme_ext_size;
-        /* 2: algorithm param */
-        pic_size = (y_header_size + c_header_size) * 2 + y_size + c_size + pme_size;
+        if (pme_share_en) {
+            pme_size += pme_ext_size;
+            /* 2: algorithm param */
+            pic_size = (y_header_size + c_header_size) * 2 + y_size + c_size + pme_size;
+        } else {
+            pic_size = (y_header_size + c_header_size) * 2 + y_size + c_size;
+        }
     }
 
     return pic_size;
@@ -578,11 +666,13 @@ __inline static td_u32 ot_venc_get_h265_pic_buf_size(const ot_venc_buf_attr *att
     td_bool share_buf;
     td_u32 frame_buf_ratio;
     td_u32 pic_size;
+    td_bool pme_share_en;
 
     width = attr->pic_buf_attr.width;
     height_align32 = OT_ALIGN_UP(attr->pic_buf_attr.height, 32); /* 32: align */
     height_align16 = OT_ALIGN_UP(attr->pic_buf_attr.height, 16); /* 16: align */
     share_buf = attr->share_buf_en;
+    pme_share_en = attr->share_buf_en && (attr->svc_version != OT_VENC_SVC_V2);
     frame_buf_ratio = attr->frame_buf_ratio;
 
     y_header_stride =   OT_ALIGN_UP(width, 1024) / 1024 * 128; /* 1024 128: algorithm param */
@@ -613,8 +703,12 @@ __inline static td_u32 ot_venc_get_h265_pic_buf_size(const ot_venc_buf_attr *att
     if (share_buf == TD_FALSE) {
         pic_size = y_header_size + c_header_size + y_size + c_size;
     } else {
-        pme_size += pme_ext_size;
-        pic_size = (y_header_size + c_header_size) * 2 + y_size + c_size + pme_size; /* 2: algorithm param */
+        if (pme_share_en) {
+            pme_size += pme_ext_size;
+            pic_size = (y_header_size + c_header_size) * 2 + y_size + c_size + pme_size; /* 2: algorithm param */
+        } else {
+            pic_size = (y_header_size + c_header_size) * 2 + y_size + c_size; /* 2: algorithm param */
+        }
     }
 
     return pic_size;

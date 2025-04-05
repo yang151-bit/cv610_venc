@@ -43,5 +43,20 @@ combo_dev_attr_t MIPI_2lane_CHN0_SENSOR_SC500AI_10BIT_1M_NOWDR_ATTR = {
       OT_MIPI_WDR_MODE_NONE,
         {0, 1, -1, -1}
     }
+}
+};
+
+combo_dev_attr_t MIPI_2lane_CHN0_SENSOR_SC500AI_10BIT_5M_NOWDR_ATTR = {
+  .devno = 0,
+  .input_mode = INPUT_MODE_MIPI,
+  .data_rate = MIPI_DATA_RATE_X1,
+  .img_rect = {0, 0, 2880, 1620},
+  {
+    .mipi_attr =
+    {
+      DATA_TYPE_RAW_10BIT,
+      OT_MIPI_WDR_MODE_NONE,
+        {0, 1, -1, -1}
+    }
   }
 };

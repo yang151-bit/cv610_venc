@@ -6,6 +6,7 @@
 // Configuration profiles
 extern combo_dev_attr_t MIPI_4lane_CHN0_SENSOR_SC500AI_10BIT_2M_NOWDR_ATTR;
 extern combo_dev_attr_t MIPI_2lane_CHN0_SENSOR_SC500AI_10BIT_1M_NOWDR_ATTR;
+extern combo_dev_attr_t MIPI_2lane_CHN0_SENSOR_SC500AI_10BIT_5M_NOWDR_ATTR;
 extern combo_dev_attr_t MIPI_4lane_CHN0_SENSOR_SC500AI_10BIT_5M_NOWDR_ATTR;
 extern ot_vi_dev_attr DEV_ATTR_SC500AI_BASE;
 extern ot_vi_pipe_attr PIPE_ATTR_RAW12_420;
@@ -206,7 +207,7 @@ int main(int argc, const char* argv[]) {
       sensor_width = image_width = 1440;
       sensor_height = image_height = 800;
       sensor_framerate = 90;
-      sensor_mode = SC500AI_800P_60FPS_10BIT_LINEAR_MODE;
+      sensor_mode = SC500AI_800P_90FPS_10BIT_LINEAR_MODE;
       isp_framerate = 90;
       vi_vpss_mode      = OT_VI_OFFLINE_VPSS_ONLINE;
     // - cv610 SC500AI 5MP
@@ -398,8 +399,17 @@ int main(int argc, const char* argv[]) {
       pipe_3dnr_profile = &PIPE_3DNR_ATTR_NORM;
       vi_vpss_mode = OT_VI_ONLINE_VPSS_ONLINE;
 
-      if(sensor_mode == SC500AI_800P_60FPS_10BIT_LINEAR_MODE){
+      if(sensor_mode == SC500AI_800P_90FPS_10BIT_LINEAR_MODE)
+      {
         mipi_profile = &MIPI_2lane_CHN0_SENSOR_SC500AI_10BIT_1M_NOWDR_ATTR;
+        mipi_profile->mipi_attr.lane_id[0] = 0;
+        mipi_profile->mipi_attr.lane_id[1] = 1;
+        mipi_profile->mipi_attr.lane_id[2] = -1;
+        mipi_profile->mipi_attr.lane_id[3] = -1;
+      }
+      else if(sensor_mode == SC500AI_5M_30FPS_10BIT_LINEAR_MODE)
+      {
+        mipi_profile = &MIPI_2lane_CHN0_SENSOR_SC500AI_10BIT_5M_NOWDR_ATTR;
         mipi_profile->mipi_attr.lane_id[0] = 0;
         mipi_profile->mipi_attr.lane_id[1] = 1;
         mipi_profile->mipi_attr.lane_id[2] = -1;

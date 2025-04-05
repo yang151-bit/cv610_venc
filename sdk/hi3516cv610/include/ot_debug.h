@@ -35,6 +35,7 @@ extern "C" {
 #define OT_DBG_INFO       6   /* informational                        */
 #define OT_DBG_DEBUG      7   /* debug-level messages                 */
 
+#if (!defined(__KERNEL__)) || defined(CONFIG_OT_LOG_TRACE_SUPPORT)
 /* Using samples:   ot_assert(x>y); */
 #define ot_assert(expr)                    \
     do {                                   \
@@ -47,6 +48,7 @@ extern "C" {
         } \
     } while (0)
 
+#endif
 #ifndef __KERNEL__
 /*
  * For User Mode : OT_PRINT, ot_assert, OT_TRACE
@@ -67,11 +69,11 @@ extern "C" {
             fprintf(stderr, ##fmt);         \
     } while (0)
 
-#else
+#else   /* #ifdef CONFIG_OT_LOG_TRACE_SUPPORT */
     #define OT_TRACE(level, enModId, fmt...)
-#endif
+#endif  /* #ifdef CONFIG_OT_LOG_TRACE_SUPPORT */
 
-#else
+#else   /* #ifndef __KERNEL__ */
 /*
  * For Linux Kernel : OT_PRINT, ot_assert, OT_TRACE
  */
@@ -86,17 +88,17 @@ int OT_LOG(td_s32 level, ot_mod_id enModId, const char *fmt, ...) __attribute__(
 #define OT_ASSERT_LOG   osal_panic
 #else
 #define OT_ASSERT_LOG   osal_printk
-#endif
+#endif  /* #ifdef OT_DEBUG */
 
     /*
      * Using samples:
      * OT_TRACE(OT_DBG_DEBUG, OT_ID_MEM, "Test %d, %s\n", 12, "Test");
      */
 #define OT_TRACE OT_LOG
-#else
-#define ot_assert(expr)
+#else   /* #ifdef CONFIG_OT_LOG_TRACE_SUPPORT */
+#define ot_assert(expr) ot_unused(expr)
 #define OT_TRACE(level, enModId, fmt...)
-#endif
+#endif  /* #ifdef CONFIG_OT_LOG_TRACE_SUPPORT */
 
 #endif /* end of __KERNEL__ */
 

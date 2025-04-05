@@ -495,6 +495,11 @@ typedef struct {
     ot_vi_pipe            pipe_id[OT_VI_MAX_PHYS_PIPE_NUM]; /* RW; Array of pipe ID */
 } ot_vi_stitch_grp_attr;
 
+typedef struct {
+    td_bool             distribute_en;                           /* RW; distribut enable */
+    ot_vi_pipe          pipe_id[OT_VI_MAX_DISTRIBUTE_PIPE_NUM];  /* RW; Array of pipe ID */
+} ot_vi_distribute_grp_attr;
+
 /* module params */
 typedef struct {
     td_u32 max_out_width;           /* RW; Range: [64, 8192]; max chn out width, default 8192. */
@@ -502,6 +507,12 @@ typedef struct {
     td_s32 detect_err_frame;
     td_u32 drop_err_frame;
 } ot_vi_mod_param;
+
+/* psfm attributes */
+typedef struct {
+    td_bool psfm_en;
+    ot_rect variable_rect;      /* RW; variable rectangular */
+} ot_vi_psfm_attr;
 
 #ifdef __cplusplus
 }

@@ -125,7 +125,7 @@ td_s32 ss_mpi_vi_detach_pipe_vb_pool(ot_vi_pipe vi_pipe);
 
 td_s32 ss_mpi_vi_attach_aiisp_vb_pool(ot_vi_pipe vi_pipe, ot_aiisp_pool *pool_attr);
 td_s32 ss_mpi_vi_detach_aiisp_vb_pool(ot_vi_pipe vi_pipe, ot_aiisp_type aiisp_type);
-
+td_s32 ss_mpi_vi_set_pipe_online_clock(ot_vi_pipe vi_pipe, td_u32 pixel_rate);
 td_s32 ss_mpi_vi_get_pipe_fd(ot_vi_pipe vi_pipe);
 
 /* channel interface */
@@ -184,12 +184,21 @@ td_s32 ss_mpi_vi_get_chn_fd(ot_vi_pipe vi_pipe, ot_vi_chn vi_chn);
 td_s32 ss_mpi_vi_set_stitch_grp_attr(ot_vi_grp stitch_grp, const ot_vi_stitch_grp_attr *stitch_grp_attr);
 td_s32 ss_mpi_vi_get_stitch_grp_attr(ot_vi_grp stitch_grp, ot_vi_stitch_grp_attr *stitch_grp_attr);
 
+/* distribute group interface */
+td_s32 ss_mpi_vi_set_distribute_grp_attr(ot_vi_grp distribute_grp,
+                                         const ot_vi_distribute_grp_attr *distribute_grp_attr);
+td_s32 ss_mpi_vi_get_distribute_grp_attr(ot_vi_grp distribute_grp, ot_vi_distribute_grp_attr *distribute_grp_attr);
+
 /* vi module interface */
 td_s32 ss_mpi_vi_set_mod_param(const ot_vi_mod_param *mod_param);
 td_s32 ss_mpi_vi_get_mod_param(ot_vi_mod_param *mod_param);
 
 td_s32 ss_mpi_vi_enable_chn_motion_denoise(ot_vi_pipe vi_pipe, ot_vi_chn vi_chn);
 td_s32 ss_mpi_vi_disable_chn_motion_denoise(ot_vi_pipe vi_pipe, ot_vi_chn vi_chn);
+
+/* psfm interface */
+td_s32 ss_mpi_vi_set_pipe_psfm_attr(ot_vi_pipe vi_pipe, const ot_vi_psfm_attr *psfm_attr);
+td_s32 ss_mpi_vi_get_pipe_psfm_attr(ot_vi_pipe vi_pipe, ot_vi_psfm_attr *psfm_attr);
 
 #ifdef __cplusplus
 }

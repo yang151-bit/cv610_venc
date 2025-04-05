@@ -5,107 +5,83 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include "sensor_common.h"
 #include "ot_mpi_isp.h"
 #include "ot_mpi_ae.h"
 #include "ot_mpi_awb.h"
 
 #include "sc500ai_cmos.h"
 #include "sc500ai_cmos_param.h"
+#include "sc500ai_sensor_ctrl.h"
 
 /****************************************************************************
  * global variables                                                            *
  ****************************************************************************/
-static ot_isp_fswdr_mode g_fswdr_mode[OT_ISP_MAX_PIPE_NUM] = {
-    [0 ... OT_ISP_MAX_PIPE_NUM - 1] = OT_ISP_FSWDR_NORMAL_MODE
-};
-static td_u8 g_ae_stat_pos[OT_ISP_MAX_PIPE_NUM] = {0};
-static td_u32 g_max_time_get_cnt[OT_ISP_MAX_PIPE_NUM] = {0};
-static td_u32 g_init_exposure[OT_ISP_MAX_PIPE_NUM]  = {0};
-static td_u32 g_init_int_time[OT_ISP_MAX_PIPE_NUM]  = {0};
-static td_u32 g_init_again[OT_ISP_MAX_PIPE_NUM]  = {0};
-static td_u32 g_init_dgain[OT_ISP_MAX_PIPE_NUM]  = {0};
-static td_u32 g_init_isp_dgain[OT_ISP_MAX_PIPE_NUM]  = {0};
-static td_u32 g_lines_per500ms[OT_ISP_MAX_PIPE_NUM] = {0};
-
-static td_u16 g_init_wb_gain[OT_ISP_MAX_PIPE_NUM][OT_ISP_RGB_CHN_NUM] = {{0}};
-static td_u16 g_sample_r_gain[OT_ISP_MAX_PIPE_NUM] = {0};
-static td_u16 g_sample_b_gain[OT_ISP_MAX_PIPE_NUM] = {0};
-static td_bool g_quick_start_en[OT_ISP_MAX_PIPE_NUM] = {TD_FALSE};
-
-static td_bool g_ae_route_ex_valid[OT_ISP_MAX_PIPE_NUM] = {0};
-static ot_isp_ae_route g_init_ae_route[OT_ISP_MAX_PIPE_NUM] = {{0}};
-static ot_isp_ae_route_ex g_init_ae_route_ex[OT_ISP_MAX_PIPE_NUM] = {{0}};
-static ot_isp_ae_route g_init_ae_route_sf[OT_ISP_MAX_PIPE_NUM] = {{0}};
-static ot_isp_ae_route_ex g_init_ae_route_sf_ex[OT_ISP_MAX_PIPE_NUM] = {{0}};
-
-static td_u32 g_max_short_exp[OT_ISP_MAX_PIPE_NUM] = {
-    [0 ...(OT_ISP_MAX_PIPE_NUM - 1)] = SC500AI_SEXP_MAX_DEFAULT * 2
-};
-
-static ot_isp_sns_commbus g_bus_info[OT_ISP_MAX_PIPE_NUM] = {
-    [0] = { .i2c_dev = 0 },
-    [1 ... OT_ISP_MAX_PIPE_NUM - 1] = { .i2c_dev = -1 }
-};
-
-static td_float g_dcg_ratio = 1.51603;
-
-static ot_isp_sns_state *g_sns_state[OT_ISP_MAX_PIPE_NUM] = {TD_NULL};
-
-static td_bool blc_clamp_info[OT_ISP_MAX_PIPE_NUM] = {[0 ...(OT_ISP_MAX_PIPE_NUM - 1)] = TD_TRUE};
-
-const sc500ai_video_mode_tbl g_sc500ai_mode_tbl[SC500AI_MODE_MAX] = {
-    {
-        SC500AI_VMAX_LINEAR,
-        SC500AI_FULL_LINES_MAX_LINEAR,
-        SC500AI_FPS_MAX_LINEAR,
-        SC500AI_FPS_MIN_LINEAR,
-        SC500AI_WIDTH_LINEAR,
-        SC500AI_HEIGHT_LINEAR,
-        SC500AI_MODE_LINEAR,
-        OT_WDR_MODE_NONE,
-        "SC500AI_5M_30FPS_10BIT_LINEAR_MODE"
-    },
-
-    {
-        SC500AI_VMAX_2TO1_LINE_WDR,
-        SC500AI_FULL_LINES_MAX_2TO1_LINE_WDR,
-        SC500AI_FPS_MAX_2TO1_LINE_WDR,
-        SC500AI_FPS_MIN_2TO1_LINE_WDR,
-        SC500AI_WIDTH_2TO1_LINE_WDR,
-        SC500AI_HEIGHT_2TO1_LINE_WDR,
-        SC500AI_MODE_2TO1_LINE_WDR,
-        OT_WDR_MODE_2To1_LINE,
-        "SC500AI_5M_30FPS_10BIT_2TO1_VC_MODE"
-    },
-    
-    {
-        SC500AI_VMAX_LINEAR_100,
-        SC500AI_FULL_LINES_MAX_LINEAR,
-        SC500AI_FPS_MAX_LINEAR_100,
-        SC500AI_FPS_MIN_LINEAR,
-        SC500AI_WIDTH_LINEAR_100,
-        SC500AI_HEIGHT_LINEAR_100,
-        SC500AI_MODE_LINEAR,
-        OT_WDR_MODE_NONE,
-        "SC500AI_1080P_100FPS_10BIT_LINEAR_MODE"
-    },
-
-    {
-        SC500AI_VMAX_LINEAR_90,
-        SC500AI_FULL_LINES_MAX_LINEAR,
-        SC500AI_FPS_MAX_LINEAR_90,
-        SC500AI_FPS_MIN_LINEAR,
-        SC500AI_WIDTH_LINEAR_90,
-        SC500AI_HEIGHT_LINEAR_90,
-        SC500AI_MODE_LINEAR,
-        OT_WDR_MODE_NONE,
-        "SC500AI_800P_60FPS_10BIT_LINEAR_MODE"
-    },
+static cis_info g_sc500ai_info[OT_ISP_MAX_PIPE_NUM] = {
+    [0 ...(OT_ISP_MAX_PIPE_NUM - 1)] {
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
+        .sns_id = SC500AI_ID,
+        .fswdr_mode = OT_ISP_FSWDR_NORMAL_MODE,
+        .quick_start_en = TD_FALSE,
+        .max_short_exp = SC500AI_SEXP_MAX_DEFAULT,
+        .bus_info = { .i2c_dev = -1 },
+        .sns_state = TD_NULL,
+        .blc_clamp_info = TD_TRUE,
+        .mode_tbl = {
+            {
+                SC500AI_VMAX_LINEAR,
+                SC500AI_FULL_LINES_MAX_LINEAR,
+                SC500AI_FPS_MAX_LINEAR,
+                SC500AI_FPS_MIN_LINEAR,
+                SC500AI_WIDTH_LINEAR,
+                SC500AI_HEIGHT_LINEAR,
+                SC500AI_MODE_LINEAR,
+                OT_WDR_MODE_NONE,
+                "SC500AI_5M_30FPS_10BIT_LINEAR_MODE"
+            },
+            {
+                SC500AI_VMAX_2TO1_LINE_WDR,
+                SC500AI_FULL_LINES_MAX_2TO1_LINE_WDR,
+                SC500AI_FPS_MAX_2TO1_LINE_WDR,
+                SC500AI_FPS_MIN_2TO1_LINE_WDR,
+                SC500AI_WIDTH_2TO1_LINE_WDR,
+                SC500AI_HEIGHT_2TO1_LINE_WDR,
+                SC500AI_MODE_2TO1_LINE_WDR,
+                OT_WDR_MODE_2To1_LINE,
+                "SC500AI_5M_30FPS_10BIT_2TO1_VC_MODE"
+            },
+            {
+                SC500AI_VMAX_LINEAR_100,
+                SC500AI_FULL_LINES_MAX_LINEAR,
+                SC500AI_FPS_MAX_LINEAR_100,
+                SC500AI_FPS_MIN_LINEAR,
+                SC500AI_WIDTH_LINEAR_100,
+                SC500AI_HEIGHT_LINEAR_100,
+                SC500AI_MODE_LINEAR,
+                OT_WDR_MODE_NONE,
+                "SC500AI_1080P_100FPS_10BIT_LINEAR_MODE"
+            },
+            {
+                SC500AI_VMAX_LINEAR_90,
+                SC500AI_FULL_LINES_MAX_LINEAR,
+                SC500AI_FPS_MAX_LINEAR_90,
+                SC500AI_FPS_MIN_LINEAR,
+                SC500AI_WIDTH_LINEAR_90,
+                SC500AI_HEIGHT_LINEAR_90,
+                SC500AI_MODE_LINEAR,
+                OT_WDR_MODE_NONE,
+                "SC500AI_800P_90FPS_10BIT_LINEAR_MODE"
+            },
+        },
+        .i2c.fd = -1,
+        .pre_ratio = 0x40
+    }
 };
 
 /****************************************************************************
   Again & Dgain table for TABLE Mode                                        *
  ****************************************************************************/
+#define SC500AI_DCG_RATIO 1.51603f
 #define SC500AI_AGAIN_NODE_NUM               256
 #define SC500AI_AGAIN_ADDR_INDEX_NODE_NUM    256
 #define SC500AI_DGAIN_NODE_NUM               256
@@ -196,52 +172,35 @@ static td_u32 dgain_table[SC500AI_DGAIN_ADDR_INDEX_NODE_NUM] = {
 /****************************************************************************
  * common functions                                                         *
  ****************************************************************************/
-ot_isp_sns_commbus *sc500ai_get_bus_info(ot_vi_pipe vi_pipe)
+static cis_info *cmos_get_info(ot_vi_pipe vi_pipe)
 {
     if (vi_pipe < 0 || vi_pipe >= OT_ISP_MAX_PIPE_NUM) {
         return TD_NULL;
     }
-    return &g_bus_info[vi_pipe];
+    return &g_sc500ai_info[vi_pipe];
 }
 
-ot_isp_sns_state *sc500ai_get_ctx(ot_vi_pipe vi_pipe)
+static ot_isp_sns_state *cmos_get_state(ot_vi_pipe vi_pipe)
 {
     if (vi_pipe < 0 || vi_pipe >= OT_ISP_MAX_PIPE_NUM) {
         return TD_NULL;
     }
-    return g_sns_state[vi_pipe];
+    return cmos_get_info(vi_pipe)->sns_state;
 }
 
-static void sc500ai_set_ctx(ot_vi_pipe vi_pipe, ot_isp_sns_state *ctx)
-{
-    if (vi_pipe < 0 || vi_pipe >= OT_ISP_MAX_PIPE_NUM) {
-        return;
-    }
-
-    g_sns_state[vi_pipe] = ctx;
-}
-
-static void sc500ai_reset_ctx(ot_vi_pipe vi_pipe)
-{
-    if (vi_pipe < 0 || vi_pipe >= OT_ISP_MAX_PIPE_NUM) {
-        return;
-    }
-
-    g_sns_state[vi_pipe] = TD_NULL;
-}
-
-static void sc500ai_err_mode_print(const ot_isp_cmos_sns_image_mode *sns_image_mode, const ot_isp_sns_state *sns_state)
+static void cmos_err_mode_print(const ot_isp_cmos_sns_image_mode *sns_image_mode, const ot_isp_sns_state *sns_state)
 {
     isp_err_trace("Not support! Width:%u, Height:%u, Fps:%f, WDRMode:%d\n",
         (sns_image_mode)->width, (sns_image_mode)->height, (sns_image_mode)->fps, (sns_state)->wdr_mode);
 }
 
-static td_void cmos_get_ae_comm_default(ot_vi_pipe vi_pipe, ot_isp_ae_sensor_default *ae_sns_dft,
+static td_void cmos_get_ae_comm_default(cis_info *cis, ot_isp_ae_sensor_default *ae_sns_dft,
     const ot_isp_sns_state *sns_state)
 {
     td_float max_fps = STANDARD_FPS; /* maxfps 30 */
+    td_u32 fl = SC500AI_VMAX_LINEAR << 1;
 
-    max_fps = g_sc500ai_mode_tbl[sns_state->img_mode].max_fps;
+    max_fps = cis->mode_tbl[sns_state->img_mode].max_fps;
     if (sns_state->img_mode == SC500AI_5M_30FPS_10BIT_LINEAR_MODE) {
         ae_sns_dft->int_time_accu.accu_type = OT_ISP_AE_ACCURACY_LINEAR;
         ae_sns_dft->int_time_accu.accuracy = INT_TIME_ACCURACY_LINEAR; /* accuracy: 1 */
@@ -250,13 +209,14 @@ static td_void cmos_get_ae_comm_default(ot_vi_pipe vi_pipe, ot_isp_ae_sensor_def
         ae_sns_dft->int_time_accu.accu_type = OT_ISP_AE_ACCURACY_LINEAR;
         ae_sns_dft->int_time_accu.accuracy = INT_TIME_ACCURACY_WDR; /* accuracy: 4 */
         ae_sns_dft->int_time_accu.offset = 0;
+        fl = SC500AI_VMAX_2TO1_LINE_WDR << 1;
     } else {
     }
 
     ae_sns_dft->full_lines_std = sns_state->fl_std ;
     ae_sns_dft->flicker_freq = FLICKER_FREQ; /* light flicker freq: 50Hz, accuracy: 256 */
-    ae_sns_dft->full_lines_max = SC500AI_FULL_LINES_MAX_LINEAR * 2;
-    ae_sns_dft->hmax_times = (1000000000) / (sns_state->fl_std * max_fps); /* 1000000000ns, 30fps */
+
+    ae_sns_dft->hmax_times = (1000000000) / (fl * max_fps); /* 1000000000ns, 30fps */
 
     ae_sns_dft->again_accu.accu_type = OT_ISP_AE_ACCURACY_TABLE;
     ae_sns_dft->again_accu.accuracy  = AGAIN_ACCURACY;
@@ -267,10 +227,10 @@ static td_void cmos_get_ae_comm_default(ot_vi_pipe vi_pipe, ot_isp_ae_sensor_def
     ae_sns_dft->isp_dgain_shift = ISP_DGAIN_SHIFT; /* accuracy: 8 */
     ae_sns_dft->min_isp_dgain_target = ISP_DGAIN_TARGET_MIN << ae_sns_dft->isp_dgain_shift;
     ae_sns_dft->max_isp_dgain_target = ISP_DGAIN_TARGET_MAX << ae_sns_dft->isp_dgain_shift; /* max 64 */
-    if (g_lines_per500ms[vi_pipe] == 0) {
-        ae_sns_dft->lines_per500ms = sns_state->fl_std * 2 * max_fps / 2; /* 30fps, div 2 */
+    if (cis->lines_per500ms == 0) {
+        ae_sns_dft->lines_per500ms = fl * max_fps / 2; /* 30fps, div 2 */
     } else {
-        ae_sns_dft->lines_per500ms = g_lines_per500ms[vi_pipe];
+        ae_sns_dft->lines_per500ms = cis->lines_per500ms;
     }
     (td_void)memcpy_s(&ae_sns_dft->piris_attr, sizeof(ot_isp_piris_attr), &g_piris, sizeof(ot_isp_piris_attr));
     ae_sns_dft->max_iris_fno = OT_ISP_IRIS_F_NO_1_4;
@@ -279,71 +239,73 @@ static td_void cmos_get_ae_comm_default(ot_vi_pipe vi_pipe, ot_isp_ae_sensor_def
     ae_sns_dft->ae_route_ex_valid = TD_FALSE;
     ae_sns_dft->ae_route_attr.total_num = 0;
     ae_sns_dft->ae_route_attr_ex.total_num = 0;
-    ae_sns_dft->quick_start.quick_start_enable = g_quick_start_en[vi_pipe];
+    ae_sns_dft->quick_start.quick_start_enable = cis->quick_start_en;
     ae_sns_dft->quick_start.black_frame_num = 0;
-    ae_sns_dft->ae_stat_pos = g_ae_stat_pos[vi_pipe]; /* 1 use be stat to AE */
+    ae_sns_dft->ae_stat_pos = cis->ae_stat_pos; /* 1 use be stat to AE */
     return;
 }
 
-static td_void cmos_get_ae_linear_default(ot_vi_pipe vi_pipe, ot_isp_ae_sensor_default *ae_sns_dft,
+static td_void cmos_get_ae_linear_default(cis_info *cis, ot_isp_ae_sensor_default *ae_sns_dft,
     const ot_isp_sns_state *sns_state)
 {
-    ae_sns_dft->max_again = SC450AI_AGAIN_MAX; /* 15.875*1.516*1024 = 24645 */
-    ae_sns_dft->min_again = SC450AI_AGAIN_MIN;  /* min 16 */
+    ae_sns_dft->max_again = SC500AI_AGAIN_MAX; /* 15.875*1.516*1024 = 24645 */
+    ae_sns_dft->min_again = SC500AI_AGAIN_MIN;  /* min 16 */
     ae_sns_dft->max_again_target = ae_sns_dft->max_again;
     ae_sns_dft->min_again_target = ae_sns_dft->min_again;
 
-    ae_sns_dft->max_dgain = SC450AI_DGAIN_MAX; /* max 16256 */
-    ae_sns_dft->min_dgain = SC450AI_DGAIN_MIN;  /* min 1024 */
+    ae_sns_dft->max_dgain = SC500AI_DGAIN_MAX; /* max 16256 */
+    ae_sns_dft->min_dgain = SC500AI_DGAIN_MIN;  /* min 1024 */
     ae_sns_dft->max_dgain_target = ae_sns_dft->max_dgain;
     ae_sns_dft->min_dgain_target = ae_sns_dft->min_dgain;
 
+    ae_sns_dft->full_lines_max = SC500AI_FULL_LINES_MAX_LINEAR * 0x2;
+
     ae_sns_dft->ae_compensation = AE_COMENSATION_DEFAULT;
     ae_sns_dft->ae_exp_mode = OT_ISP_AE_EXP_HIGHLIGHT_PRIOR;
-    ae_sns_dft->init_exposure = g_init_exposure[vi_pipe] ?
-        g_init_exposure[vi_pipe] : INIT_EXP_DEFAULT_LINEAR; /* init 148859 */
-    ae_sns_dft->init_int_time = g_init_int_time[vi_pipe];
-    ae_sns_dft->init_again = g_init_again[vi_pipe];
-    ae_sns_dft->init_dgain = g_init_dgain[vi_pipe];
-    ae_sns_dft->init_isp_dgain = g_init_isp_dgain[vi_pipe];
+    ae_sns_dft->init_exposure = cis->init_exposure ? cis->init_exposure : INIT_EXP_DEFAULT_LINEAR; /* init 148859 */
+    ae_sns_dft->init_int_time = cis->init_int_time;
+    ae_sns_dft->init_again = cis->init_again;
+    ae_sns_dft->init_dgain = cis->init_dgain;
+    ae_sns_dft->init_isp_dgain = cis->init_isp_dgain;
 
     ae_sns_dft->max_int_time = sns_state->fl_std - FL_OFFSET_LINEAR;
     ae_sns_dft->min_int_time = 3; /* min int 3 */
     ae_sns_dft->max_int_time_target = MAX_INT_TIME_TARGET; /* max int 65535 */
     ae_sns_dft->min_int_time_target = ae_sns_dft->min_int_time;
-    ae_sns_dft->ae_route_ex_valid = g_ae_route_ex_valid[vi_pipe];
+    ae_sns_dft->ae_route_ex_valid = cis->ae_route_ex_valid;
     (td_void)memcpy_s(&ae_sns_dft->ae_route_attr, sizeof(ot_isp_ae_route),
-                      &g_init_ae_route[vi_pipe],  sizeof(ot_isp_ae_route));
+                      &cis->init_ae_route,  sizeof(ot_isp_ae_route));
     (td_void)memcpy_s(&ae_sns_dft->ae_route_attr_ex, sizeof(ot_isp_ae_route_ex),
-                      &g_init_ae_route_ex[vi_pipe], sizeof(ot_isp_ae_route_ex));
+                      &cis->init_ae_route_ex, sizeof(ot_isp_ae_route_ex));
     return;
 }
 
-static td_void cmos_get_ae_2to1_line_wdr_default(ot_vi_pipe vi_pipe, ot_isp_ae_sensor_default *ae_sns_dft,
+static td_void cmos_get_ae_2to1_line_wdr_default(cis_info *cis, ot_isp_ae_sensor_default *ae_sns_dft,
     const ot_isp_sns_state *sns_state)
 {
-    ae_sns_dft->max_int_time = sns_state->fl_std - g_max_short_exp[vi_pipe] - FL_OFFSET_WDR_SHORT;
+    ae_sns_dft->max_int_time = sns_state->fl_std - FL_OFFSET_WDR_LONG - FL_OFFSET_WDR_SHORT;
     ae_sns_dft->min_int_time = 5;  /* min_int_time 5 */
     ae_sns_dft->int_time_accu.offset = 0;
     ae_sns_dft->max_int_time_target = MAX_INT_TIME_TARGET; /* max 65535 */
     ae_sns_dft->min_int_time_target = ae_sns_dft->min_int_time;
 
-    ae_sns_dft->max_again = SC450AI_AGAIN_MAX; /* 15.875*1.516*1024 = 24645 */
-    ae_sns_dft->min_again = SC450AI_AGAIN_MIN;  /* min 1024 */
+    ae_sns_dft->max_again = SC500AI_AGAIN_MAX; /* 15.875*1.516*1024 = 24645 */
+    ae_sns_dft->min_again = SC500AI_AGAIN_MIN;  /* min 1024 */
     ae_sns_dft->max_again_target = ae_sns_dft->max_again;
     ae_sns_dft->min_again_target = ae_sns_dft->min_again;
 
-    ae_sns_dft->max_dgain = SC450AI_DGAIN_MAX; /* max 16256 */
-    ae_sns_dft->min_dgain = SC450AI_DGAIN_MIN;  /* min 1024 */
+    ae_sns_dft->full_lines_max = SC500AI_FULL_LINES_MAX_2TO1_LINE_WDR * 0x2;
+
+    ae_sns_dft->max_dgain = SC500AI_DGAIN_MAX; /* max 16256 */
+    ae_sns_dft->min_dgain = SC500AI_DGAIN_MIN;  /* min 1024 */
     ae_sns_dft->max_dgain_target = ae_sns_dft->max_dgain;
     ae_sns_dft->min_dgain_target = ae_sns_dft->min_dgain;
     ae_sns_dft->max_isp_dgain_target = ISP_DGAIN_TARGET_WDR_MAX << ae_sns_dft->isp_dgain_shift; /* max 4 << shift */
     ae_sns_dft->diff_gain_support = TD_TRUE;
 
-    ae_sns_dft->init_exposure = g_init_exposure[vi_pipe] ?
-        g_init_exposure[vi_pipe] : INIT_EXP_DEFAULT_WDR; /* init 16462 */
+    ae_sns_dft->init_exposure = cis->init_exposure ? cis->init_exposure : INIT_EXP_DEFAULT_WDR; /* init 66462 */
 
-    if (g_fswdr_mode[vi_pipe] == OT_ISP_FSWDR_LONG_FRAME_MODE) {
+    if (cis->fswdr_mode == OT_ISP_FSWDR_LONG_FRAME_MODE) {
         ae_sns_dft->ae_compensation = AE_COMENSATION_WDR_LONG_FRM; /* ae_compensation 56 */
         ae_sns_dft->ae_exp_mode = OT_ISP_AE_EXP_HIGHLIGHT_PRIOR;
     } else {
@@ -355,39 +317,47 @@ static td_void cmos_get_ae_2to1_line_wdr_default(ot_vi_pipe vi_pipe, ot_isp_ae_s
         ae_sns_dft->arr_ratio[2] = AE_ARR_RATIO_2_WDR; /* array index 2 */
     }
     ae_sns_dft->lf_min_exposure = 40000; /* lf_threshold 40000 */
-    ae_sns_dft->ae_route_ex_valid = g_ae_route_ex_valid[vi_pipe];
+    ae_sns_dft->ae_route_ex_valid = cis->ae_route_ex_valid;
+
     (td_void)memcpy_s(&ae_sns_dft->ae_route_attr, sizeof(ot_isp_ae_route),
-                      &g_init_ae_route[vi_pipe],  sizeof(ot_isp_ae_route));
+                      &cis->init_ae_route,  sizeof(ot_isp_ae_route));
     (td_void)memcpy_s(&ae_sns_dft->ae_route_attr_ex, sizeof(ot_isp_ae_route_ex),
-                      &g_init_ae_route_ex[vi_pipe],  sizeof(ot_isp_ae_route_ex));
+                      &cis->init_ae_route_ex,  sizeof(ot_isp_ae_route_ex));
     (td_void)memcpy_s(&ae_sns_dft->ae_route_sf_attr, sizeof(ot_isp_ae_route),
-                      &g_init_ae_route_sf[vi_pipe], sizeof(ot_isp_ae_route));
+                      &cis->init_ae_route_sf, sizeof(ot_isp_ae_route));
     (td_void)memcpy_s(&ae_sns_dft->ae_route_sf_attr_ex, sizeof(ot_isp_ae_route_ex),
-                      &g_init_ae_route_sf_ex[vi_pipe],  sizeof(ot_isp_ae_route_ex));
+                      &cis->init_ae_route_sf_ex,  sizeof(ot_isp_ae_route_ex));
     return;
 }
 
 static td_s32 cmos_get_ae_default(ot_vi_pipe vi_pipe, ot_isp_ae_sensor_default *ae_sns_dft)
 {
+    cis_info *cis = TD_NULL;
     ot_isp_sns_state *sns_state = TD_NULL;
 
+    sns_check_pipe_return(vi_pipe);
     sns_check_pointer_return(ae_sns_dft);
-    sns_state = sc500ai_get_ctx(vi_pipe);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_return(cis);
+
+    sns_state = cis->sns_state;
+
     sns_check_pointer_return(sns_state);
 
     (td_void)memset_s(&ae_sns_dft->ae_route_attr, sizeof(ot_isp_ae_route), 0, sizeof(ot_isp_ae_route));
 
-    cmos_get_ae_comm_default(vi_pipe, ae_sns_dft, sns_state);
+    cmos_get_ae_comm_default(cis, ae_sns_dft, sns_state);
 
     switch (sns_state->wdr_mode) {
         case OT_WDR_MODE_NONE:   /* linear mode */
-            cmos_get_ae_linear_default(vi_pipe, ae_sns_dft, sns_state);
+            cmos_get_ae_linear_default(cis, ae_sns_dft, sns_state);
             break;
         case OT_WDR_MODE_2To1_LINE:
-            cmos_get_ae_2to1_line_wdr_default(vi_pipe, ae_sns_dft, sns_state);
+            cmos_get_ae_2to1_line_wdr_default(cis, ae_sns_dft, sns_state);
             break;
         default:
-            cmos_get_ae_linear_default(vi_pipe, ae_sns_dft, sns_state);
+            cmos_get_ae_linear_default(cis, ae_sns_dft, sns_state);
             break;
     }
 
@@ -415,19 +385,25 @@ static td_void cmos_fps_set(ot_vi_pipe vi_pipe, td_float fps, ot_isp_ae_sensor_d
     td_u32 vmax;
     td_float max_fps;
     td_float min_fps;
+    cis_info *cis = TD_NULL;
     ot_isp_sns_state *sns_state = TD_NULL;
 
+    sns_check_pipe_void_return(vi_pipe);
     sns_check_pointer_void_return(ae_sns_dft);
-    sns_state = sc500ai_get_ctx(vi_pipe);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_void_return(cis);
+
+    sns_state = cis->sns_state;
     sns_check_pointer_void_return(sns_state);
 
-    lines = g_sc500ai_mode_tbl[sns_state->img_mode].ver_lines;
-    lines_max = g_sc500ai_mode_tbl[sns_state->img_mode].max_ver_lines;
-    max_fps = g_sc500ai_mode_tbl[sns_state->img_mode].max_fps;
-    min_fps = g_sc500ai_mode_tbl[sns_state->img_mode].min_fps;
+    lines = cis->mode_tbl[sns_state->img_mode].ver_lines;
+    lines_max = cis->mode_tbl[sns_state->img_mode].max_ver_lines;
+    max_fps = cis->mode_tbl[sns_state->img_mode].max_fps;
+    min_fps = cis->mode_tbl[sns_state->img_mode].min_fps;
 
     if ((fps > max_fps) || (fps < min_fps)) {
-        isp_err_trace("Not support Fps: %f\n", fps);
+        isp_err_trace("ISP sensor sc500ai Not support Fps: %f\n", fps);
         return;
     }
 
@@ -437,16 +413,12 @@ static td_void cmos_fps_set(ot_vi_pipe vi_pipe, td_float fps, ot_isp_ae_sensor_d
     cmos_config_vmax(sns_state, vmax);
     sns_state->fl_std = vmax << 1;
     ae_sns_dft->lines_per500ms = (lines * 2) * 15; /* 2 * 15 */
-
     ae_sns_dft->fps = fps;
     ae_sns_dft->full_lines_std = sns_state->fl_std;
     if (sns_state->wdr_mode == OT_WDR_MODE_NONE) {
         ae_sns_dft->max_int_time = sns_state->fl_std - FL_OFFSET_LINEAR;
     } else {
-        g_max_short_exp[vi_pipe] = (td_u32)(SC500AI_SEXP_MAX_DEFAULT * max_fps / div_0_to_1_float(fps));
-        ae_sns_dft->max_int_time = sns_state->fl_std - g_max_short_exp[vi_pipe]- FL_OFFSET_WDR_LONG;
-        sns_state->regs_info[0].i2c_data[SHORT_EXP_MAX_H_ADDR_IDX].data = high_8bits(g_max_short_exp[vi_pipe]);
-        sns_state->regs_info[0].i2c_data[SHORT_EXP_MAX_L_ADDR_IDX].data = low_8bits(g_max_short_exp[vi_pipe] & 0xfe);
+        ae_sns_dft->max_int_time = sns_state->fl_std - FL_OFFSET_WDR_LONG - FL_OFFSET_WDR_SHORT;
     }
 
     sns_state->fl[0] = sns_state->fl_std ;
@@ -460,15 +432,22 @@ static td_void cmos_slow_framerate_set(ot_vi_pipe vi_pipe, td_u32 full_lines, ot
 {
     td_u32 vmax;
     td_u32 lines_max;
+    cis_info *cis = TD_NULL;
     ot_isp_sns_state *sns_state = TD_NULL;
+
+    sns_check_pipe_void_return(vi_pipe);
     sns_check_pointer_void_return(ae_sns_dft);
-    sns_state = sc500ai_get_ctx(vi_pipe);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_void_return(cis);
+
+    sns_state = cis->sns_state;
     sns_check_pointer_void_return(sns_state);
 
-    lines_max = g_sc500ai_mode_tbl[sns_state->img_mode].max_ver_lines;
+    lines_max = cis->mode_tbl[sns_state->img_mode].max_ver_lines;
 
     vmax = (full_lines + FL_OFFSET_LINEAR) >> 1;
-    vmax = (vmax > lines_max) ? lines_max : vmax;
+    vmax = clip3(vmax, SC500AI_VMAX_LINEAR, lines_max);
     sns_state->fl[0] = vmax << 1;
 
     sns_state->regs_info[0].i2c_data[VMAX_L_IDX].data = low_8bits(vmax);
@@ -477,19 +456,14 @@ static td_void cmos_slow_framerate_set(ot_vi_pipe vi_pipe, td_u32 full_lines, ot
     if (sns_state->wdr_mode == OT_WDR_MODE_NONE) {
         ae_sns_dft->max_int_time = sns_state->fl[0] - FL_OFFSET_LINEAR;
     } else {
-        ae_sns_dft->max_int_time = sns_state->fl[0] - g_max_short_exp[vi_pipe] - FL_OFFSET_WDR_LONG;
+        ae_sns_dft->max_int_time = sns_state->fl[0] - FL_OFFSET_WDR_LONG - FL_OFFSET_WDR_SHORT;
     }
     ae_sns_dft->full_lines = full_lines;
     return;
 }
 
-static td_void cmos_inttime_update_linear(ot_vi_pipe vi_pipe, td_u32 int_time)
+static td_void cmos_inttime_update_linear(ot_isp_sns_state *sns_state, td_u32 int_time)
 {
-    ot_isp_sns_state *sns_state = TD_NULL;
-
-    sns_state = sc500ai_get_ctx(vi_pipe);
-    sns_check_pointer_void_return(sns_state);
-
     sns_state->regs_info[0].i2c_data[EXPO_L_IDX].data = lower_4bits(int_time);
     sns_state->regs_info[0].i2c_data[EXPO_M_IDX].data = higher_8bits(int_time);
     sns_state->regs_info[0].i2c_data[EXPO_H_IDX].data = higher_4bits(int_time);
@@ -497,16 +471,15 @@ static td_void cmos_inttime_update_linear(ot_vi_pipe vi_pipe, td_u32 int_time)
     return;
 }
 
-static td_void cmos_inttime_update_2to1_line(ot_vi_pipe vi_pipe, td_u32 int_time)
+static td_void cmos_inttime_update_2to1_line(ot_vi_pipe vi_pipe,
+    cis_info *cis, ot_isp_sns_state *sns_state, td_u32 int_time)
 {
-    ot_isp_sns_state *sns_state = TD_NULL;
+    td_u32 max_short_exp, long_int_time_max;
+    td_s32 max_next_short_exp;
     static td_bool is_first[OT_ISP_MAX_PIPE_NUM] = {[0 ...(OT_ISP_MAX_PIPE_NUM - 1)] = 1};
 
     static td_u32 short_int_time[OT_ISP_MAX_PIPE_NUM] = {0};
     static td_u32 long_int_time[OT_ISP_MAX_PIPE_NUM] = {0};
-
-    sns_state = sc500ai_get_ctx(vi_pipe);
-    sns_check_pointer_void_return(sns_state);
 
     if (is_first[vi_pipe]) { /* short exposure */
         sns_state->wdr_int_time[0] = int_time;
@@ -515,6 +488,18 @@ static td_void cmos_inttime_update_2to1_line(ot_vi_pipe vi_pipe, td_u32 int_time
     } else { /* long exposure */
         sns_state->wdr_int_time[1] = int_time;
         long_int_time[vi_pipe] = int_time;
+
+        max_short_exp = MAX2((short_int_time[vi_pipe] + FL_OFFSET_WDR_SHORT) >> 1, SC500AI_SEXP_MAX_DEFAULT);
+        max_next_short_exp = (SC500AI_EXP_Y + 20) * 2 + (td_s32)cis->max_short_exp - /* 20 2 */
+            (td_s32)sns_state->fl[0] / 2 + 2; /* 2 */
+        if (max_short_exp < cis->max_short_exp) {
+            max_short_exp = (td_u32)(MAX2((td_s32)max_short_exp, max_next_short_exp));
+        }
+        cis->max_short_exp = ((max_short_exp + 1) >> 1) << 1;
+        long_int_time_max = cis->sns_state->fl[0] - 2 * cis->max_short_exp - FL_OFFSET_WDR_LONG; /* 2 */
+        long_int_time[vi_pipe] = MIN2(long_int_time[vi_pipe], long_int_time_max);
+        sns_state->regs_info[0].i2c_data[SHORT_EXP_MAX_H_ADDR_IDX].data = high_8bits(cis->max_short_exp);
+        sns_state->regs_info[0].i2c_data[SHORT_EXP_MAX_L_ADDR_IDX].data = low_8bits(cis->max_short_exp & 0xfe);
 
         sns_state->regs_info[0].i2c_data[WDR_EXPO_L_IDX].data = lower_4bits(long_int_time[vi_pipe]);
         sns_state->regs_info[0].i2c_data[WDR_EXPO_M_IDX].data = higher_8bits(long_int_time[vi_pipe]);
@@ -530,15 +515,21 @@ static td_void cmos_inttime_update_2to1_line(ot_vi_pipe vi_pipe, td_u32 int_time
 /* while isp notify ae to update sensor regs, ae call these funcs. */
 static td_void cmos_inttime_update(ot_vi_pipe vi_pipe, td_u32 int_time)
 {
+    cis_info *cis = TD_NULL;
     ot_isp_sns_state *sns_state = TD_NULL;
 
-    sns_state = sc500ai_get_ctx(vi_pipe);
+    sns_check_pipe_void_return(vi_pipe);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_void_return(cis);
+
+    sns_state = cis->sns_state;
     sns_check_pointer_void_return(sns_state);
 
     if (sns_state->wdr_mode == OT_WDR_MODE_2To1_LINE) {
-        cmos_inttime_update_2to1_line(vi_pipe, int_time);
+        cmos_inttime_update_2to1_line(vi_pipe, cis, sns_state, int_time);
     } else {
-        cmos_inttime_update_linear(vi_pipe, int_time);
+        cmos_inttime_update_linear(sns_state, int_time);
     }
 
     return;
@@ -548,24 +539,24 @@ static td_void cmos_again_calc_table(ot_vi_pipe vi_pipe, td_u32 *again_lin, td_u
 {
     td_s32 i;
     td_u32 again_lin_tmp;
-
+    ot_unused(vi_pipe);
     sns_check_pointer_void_return(again_lin);
     sns_check_pointer_void_return(again_db);
 
-    if (*again_lin >= (td_u32)(again_index[SC500AI_AGAIN_ADDR_INDEX_NODE_NUM - 1] * g_dcg_ratio)) {
-        *again_lin = (td_u32)(again_index[SC500AI_AGAIN_ADDR_INDEX_NODE_NUM - 1] * g_dcg_ratio);
-        if (g_dcg_ratio > 1) {
+    if (*again_lin >= (td_u32)(again_index[SC500AI_AGAIN_ADDR_INDEX_NODE_NUM - 1] * SC500AI_DCG_RATIO)) {
+        *again_lin = (td_u32)(again_index[SC500AI_AGAIN_ADDR_INDEX_NODE_NUM - 1] * SC500AI_DCG_RATIO);
+        if (SC500AI_DCG_RATIO > 1) {
             *again_db = again_table[SC500AI_AGAIN_NODE_NUM - 1] | 0x2000;
         } else {
             *again_db = again_table[SC500AI_AGAIN_NODE_NUM - 1];
         }
         return;
     }
-    if (*again_lin > (1024 * g_dcg_ratio)) {  /* 1024 */
-        again_lin_tmp = (td_u32)(*again_lin / g_dcg_ratio);
+    if (*again_lin > (1024 * SC500AI_DCG_RATIO)) {  /* 1024 */
+        again_lin_tmp = (td_u32)(*again_lin / SC500AI_DCG_RATIO);
         for (i = 1; i < SC500AI_AGAIN_NODE_NUM; i++) {
             if (again_lin_tmp < again_index[i]) {
-                *again_lin = (td_u32)(again_index[i - 1] * g_dcg_ratio);
+                *again_lin = (td_u32)(again_index[i - 1] * SC500AI_DCG_RATIO);
                 *again_db = again_table[i - 1] | 0x2000;
                 break;
             }
@@ -609,7 +600,10 @@ static td_void cmos_dgain_calc_table(ot_vi_pipe vi_pipe, td_u32 *dgain_lin, td_u
 static td_void cmos_gains_update(ot_vi_pipe vi_pipe, td_u32 again, td_u32 dgain)
 {
     ot_isp_sns_state *sns_state = TD_NULL;
-    sns_state = sc500ai_get_ctx(vi_pipe);
+    static td_bool first_gain[OT_ISP_MAX_PIPE_NUM] = { [0 ...(OT_ISP_MAX_PIPE_NUM - 1)] = 1 };
+    sns_check_pipe_void_return(vi_pipe);
+
+    sns_state = cmos_get_state(vi_pipe);
     sns_check_pointer_void_return(sns_state);
 
     td_u8 reg_0x3e09;
@@ -622,56 +616,132 @@ static td_void cmos_gains_update(ot_vi_pipe vi_pipe, td_u32 again, td_u32 dgain)
     reg_0x3e08 = high_8bits(again);
     reg_0x3e09 = low_8bits (again);
 
-    sns_state->regs_info[0].i2c_data[DGAIN_H_IDX].data = reg_0x3e06;
-    sns_state->regs_info[0].i2c_data[DGAIN_L_IDX].data = reg_0x3e07;
-    sns_state->regs_info[0].i2c_data[AGAIN_H_IDX].data = reg_0x3e08;
-    sns_state->regs_info[0].i2c_data[AGAIN_L_IDX].data = reg_0x3e09;
+    if (sns_state->wdr_mode == OT_WDR_MODE_NONE) {
+        sns_state->regs_info[0].i2c_data[DGAIN_H_IDX].data = reg_0x3e06;
+        sns_state->regs_info[0].i2c_data[DGAIN_L_IDX].data = reg_0x3e07;
+        sns_state->regs_info[0].i2c_data[AGAIN_H_IDX].data = reg_0x3e08;
+        sns_state->regs_info[0].i2c_data[AGAIN_L_IDX].data = reg_0x3e09;
+    } else if (sns_state->wdr_mode == OT_WDR_MODE_2To1_LINE) {
+        if (first_gain[vi_pipe] == TD_TRUE) {
+            sns_state->regs_info[0].i2c_data[DGAIN_H_IDX].data = reg_0x3e06;
+            sns_state->regs_info[0].i2c_data[DGAIN_L_IDX].data = reg_0x3e07;
+            sns_state->regs_info[0].i2c_data[AGAIN_H_IDX].data = reg_0x3e08;
+            sns_state->regs_info[0].i2c_data[AGAIN_L_IDX].data = reg_0x3e09;
+            first_gain[vi_pipe] = TD_FALSE;
+        } else {
+            sns_state->regs_info[0].i2c_data[WDR_SHORT_DGAIN_H_IDX].data = reg_0x3e06;
+            sns_state->regs_info[0].i2c_data[WDR_SHORT_DGAIN_L_IDX].data = reg_0x3e07;
+            sns_state->regs_info[0].i2c_data[WDR_SHORT_AGAIN_H_IDX].data = reg_0x3e08;
+            sns_state->regs_info[0].i2c_data[WDR_SHORT_AGAIN_L_IDX].data = reg_0x3e09;
+            first_gain[vi_pipe] = TD_TRUE;
+        }
+    }
 
-    if (sns_state->wdr_mode == OT_WDR_MODE_2To1_LINE) {
-        sns_state->regs_info[0].i2c_data[WDR_SHORT_DGAIN_H_IDX].data = reg_0x3e06;
-        sns_state->regs_info[0].i2c_data[WDR_SHORT_DGAIN_L_IDX].data = reg_0x3e07;
-        sns_state->regs_info[0].i2c_data[WDR_SHORT_AGAIN_H_IDX].data = reg_0x3e08;
-        sns_state->regs_info[0].i2c_data[WDR_SHORT_AGAIN_L_IDX].data = reg_0x3e09;
-    } else {
+    return;
+}
+
+static td_void cmos_clip_ratio_range(td_u32 *a_exp_ratio, const ot_isp_ae_int_time_range *int_time,
+    td_u32 wdr_frame_num)
+{
+    td_u32 i, ratio_min, ratio_max;
+    for (i = 0; i < wdr_frame_num - 1; i++) {
+        ratio_max = int_time->int_time_max[i + 1] * 0x40 / int_time->int_time_min[i];
+        ratio_min = int_time->int_time_min[i + 1] * 0x40 / int_time->int_time_max[i];
+        a_exp_ratio[i] = MIN2(MAX2(a_exp_ratio[i], ratio_min), ratio_max);
+        a_exp_ratio[i] = MIN2(MAX2(a_exp_ratio[i], 0x40), 0x7FF);
+    }
+}
+
+static td_void cmos_step_limit(ot_isp_ae_int_time_range *int_time,
+    const time_step *step, td_u32 full_lines, td_u32 wdr_frame_num)
+{
+    td_u32 i;
+    td_u32 max_int_time = 0;
+    for (i = 0; i < wdr_frame_num; i++) {
+        if (int_time->pre_int_time[i] == 0) {
+            return ;
+        }
+    }
+    for (i = 0; i < wdr_frame_num; i++) {
+        if (step->inc[i] > 0) {
+            int_time->int_time_max[i] = MIN2(int_time->pre_int_time[i] + step->inc[i], int_time->int_time_max[i]);
+        }
+        if (step->dec[i] > 0) {
+            if (int_time->pre_int_time[i] > step->dec[i]) {
+                int_time->int_time_min[i] = MAX2(int_time->pre_int_time[i] - step->dec[i], int_time->int_time_min[i]);
+            } else {
+                int_time->int_time_min[i] = MAX2(int_time->int_time_min[i], 0);
+            }
+        }
+        if (int_time->int_time_min[i] > int_time->int_time_max[i]) {
+            int_time->int_time_max[i] = int_time->int_time_min[i];
+        }
+        /* make sure LEF > SEF1 and SEF1 > SEF2 */
+        if (i > 0) {
+            int_time->int_time_max[i] = MAX2(int_time->int_time_max[i], int_time->int_time_max[i - 1]);
+            int_time->int_time_min[i] = MAX2(int_time->int_time_min[i], int_time->int_time_min[i - 1]);
+        }
+    }
+    /* make sure max_int_time < full_lines */
+    for (i = 0; i < wdr_frame_num; i++) {
+        max_int_time += int_time->int_time_max[i];
+    }
+    if (max_int_time > full_lines) {
+        max_int_time = max_int_time - full_lines;
+        for (i = 0; i < wdr_frame_num; ++i) {
+            if (int_time->int_time_max[i] - int_time->int_time_min[i] > max_int_time) {
+                int_time->int_time_max[i] = int_time->int_time_max[i] - max_int_time;
+                return;
+            }
+        }
     }
     return;
+}
+
+static td_void cmos_set_2to1_long_frame_range(ot_isp_ae_int_time_range *int_time,
+                                              td_u32 time_min, td_u32 time_max, td_u32 step)
+{
+    int_time->int_time_max[0] = (td_u32)(MAX2((td_s32)int_time->pre_int_time[0] - (td_s32)step, (td_s32)time_min));
+    int_time->int_time_min[0] = (td_u32)(MAX2((td_s32)int_time->pre_int_time[0] - (td_s32)step, (td_s32)time_min));
+    int_time->int_time_max[1] = time_max;
+    int_time->int_time_min[1] = time_min;
 }
 
 static td_void cmos_get_inttime_max_2to1_line(ot_vi_pipe vi_pipe, td_u32 *ratio,
     ot_isp_ae_int_time_range *int_time, td_u32 *lf_max_int_time)
 {
-    td_u32 short_max0;
-    td_u32 short_max;
-    td_u32 short_time_min_limit;
+    td_u32 short_max, short_max0, short_time_min_limit, i;
     ot_isp_sns_state *sns_state = TD_NULL;
+    time_step step = {{0}};
+    cis_info *cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_void_return(cis);
 
-    sns_state = sc500ai_get_ctx(vi_pipe);
+    sns_state = cmos_get_state(vi_pipe);
     sns_check_pointer_void_return(sns_state);
-
     short_time_min_limit = 5; /* short_time_min_limit 5 */
+    if (cis_wdr_range_check(ratio)) {
+        isp_err_trace("cmos_2to1_line_wdr_range_check fail\n");
+        return;
+    }
 
-    if (g_fswdr_mode[vi_pipe] == OT_ISP_FSWDR_LONG_FRAME_MODE) {
-        short_max0 = sns_state->fl[1] - g_max_short_exp[vi_pipe]  - FL_OFFSET_WDR_LONG; /* sensor limit: sub 20 */
-        short_max = sns_state->fl[0] - g_max_short_exp[vi_pipe]  - FL_OFFSET_WDR_LONG; /* sensor limit: sub 20 */
-        short_max = short_max > (g_max_short_exp[vi_pipe] - FL_OFFSET_WDR_SHORT) ?
-                    (g_max_short_exp[vi_pipe]  - FL_OFFSET_WDR_SHORT) : short_max;
+    for (i = 0; i < 2; i++) { /* frame number is 2 */
+        step.inc[i] = (sns_state->fl[1] - cis->mode_tbl[SC500AI_5M_30FPS_10BIT_2TO1_VC_MODE].height) >> 1;
+        step.dec[i] = (sns_state->fl[1] - cis->mode_tbl[SC500AI_5M_30FPS_10BIT_2TO1_VC_MODE].height) >> 1;
+    }
+
+    if (cis->fswdr_mode == OT_ISP_FSWDR_LONG_FRAME_MODE) {
+        short_max0 = sns_state->fl[1] - 2 * SC500AI_SEXP_MAX_DEFAULT  - FL_OFFSET_WDR_LONG; /* 2 */
+        short_max = sns_state->fl[0] - 2 * SC500AI_SEXP_MAX_DEFAULT  - FL_OFFSET_WDR_LONG; /* 2 */
         short_max = (short_max0 < short_max) ? short_max0 : short_max;
         int_time->int_time_max[0] = short_time_min_limit;
         int_time->int_time_min[0] = short_time_min_limit;
         int_time->int_time_max[1] = short_max;
         int_time->int_time_min[1] = short_time_min_limit;
-        return;
+        cmos_set_2to1_long_frame_range(int_time, short_time_min_limit, short_max, 90); /* step 90 */
     } else {
-        short_max0 = ((sns_state->fl[1] - g_max_short_exp[vi_pipe] - FL_OFFSET_WDR_LONG) * 0x40) /
-            div_0_to_1(ratio[0]);
-        short_max = ((sns_state->fl[0] - g_max_short_exp[vi_pipe] - FL_OFFSET_WDR_LONG) * 0x40) /
-            div_0_to_1(ratio[0]);
-        short_max = short_max > (g_max_short_exp[vi_pipe]  - FL_OFFSET_WDR_SHORT) ?
-                    (g_max_short_exp[vi_pipe]  - FL_OFFSET_WDR_SHORT) : short_max;
-        short_max = (short_max0 < short_max) ? short_max0 : short_max;
-        short_max = (short_max == 0) ? 1 : short_max;
-    }
-        *lf_max_int_time = sns_state->fl[0] - FL_OFFSET_WDR_SHORT;
+        short_max = (sns_state->fl[0] - FL_OFFSET_WDR_LONG - FL_OFFSET_WDR_SHORT) * 0x40 / div_0_to_1(ratio[0] + 0x40);
+
+        *lf_max_int_time = sns_state->fl[0] - 2 * cis->max_short_exp - FL_OFFSET_WDR_LONG; /* 2 */
         if (short_max >= short_time_min_limit) {
             int_time->int_time_max[0] = short_max;
             int_time->int_time_max[1] = (int_time->int_time_max[0] * ratio[0]) >> 6; /* shift 6 */
@@ -680,10 +750,18 @@ static td_void cmos_get_inttime_max_2to1_line(ot_vi_pipe vi_pipe, td_u32 *ratio,
         } else {
             short_max = short_time_min_limit;
             int_time->int_time_max[0] = short_max;
-            int_time->int_time_max[1] = (int_time->int_time_max[0] * 0xFFF) >> 6; /* shift 6 */
+            int_time->int_time_max[1] = (int_time->int_time_max[0] * 0x7FF) >> 6; /* shift 6 */
             int_time->int_time_min[0] = int_time->int_time_max[0];
             int_time->int_time_min[1] = int_time->int_time_max[1];
         }
+        int_time->int_time_max[1] = MIN2(*lf_max_int_time, int_time->int_time_max[1]);
+
+        if (ratio[0] != cis->pre_ratio) {
+            cmos_step_limit(int_time, &step, sns_state->fl[1], 2); /* frame number is 2 */
+            cmos_clip_ratio_range(ratio, (const ot_isp_ae_int_time_range *)int_time, 2); /* frame number is 2 */
+        }
+    }
+    cis->pre_ratio = ratio[0];
 
     return;
 }
@@ -693,10 +771,11 @@ static td_void cmos_get_inttime_max(ot_vi_pipe vi_pipe, td_u16 man_ratio_enable,
 {
     ot_isp_sns_state *sns_state = TD_NULL;
     ot_unused(man_ratio_enable);
+    sns_check_pipe_void_return(vi_pipe);
     sns_check_pointer_void_return(ratio);
     sns_check_pointer_void_return(int_time);
     sns_check_pointer_void_return(lf_max_int_time);
-    sns_state = sc500ai_get_ctx(vi_pipe);
+    sns_state = cmos_get_state(vi_pipe);
     sns_check_pointer_void_return(sns_state);
 
     switch (sns_state->wdr_mode) {
@@ -713,18 +792,22 @@ static td_void cmos_get_inttime_max(ot_vi_pipe vi_pipe, td_u16 man_ratio_enable,
 /* Only used in LINE_WDR mode */
 static td_void cmos_ae_fswdr_attr_set(ot_vi_pipe vi_pipe, ot_isp_ae_fswdr_attr *ae_fswdr_attr)
 {
+    cis_info *cis = TD_NULL;
+
+    sns_check_pipe_void_return(vi_pipe);
     sns_check_pointer_void_return(ae_fswdr_attr);
 
-    g_fswdr_mode[vi_pipe] = ae_fswdr_attr->fswdr_mode;
-    g_max_time_get_cnt[vi_pipe] = 0;
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_void_return(cis);
+
+    cis->fswdr_mode = ae_fswdr_attr->fswdr_mode;
+    cis->max_time_get_cnt = 0;
 
     return;
 }
 
-static td_s32 cmos_init_ae_exp_function(ot_isp_ae_sensor_exp_func *exp_func)
+static td_void cmos_init_ae_exp_function(ot_isp_ae_sensor_exp_func *exp_func)
 {
-    sns_check_pointer_return(exp_func);
-
     (td_void)memset_s(exp_func, sizeof(ot_isp_ae_sensor_exp_func), 0, sizeof(ot_isp_ae_sensor_exp_func));
     exp_func->pfn_cmos_get_ae_default		= cmos_get_ae_default;
     exp_func->pfn_cmos_fps_set				= cmos_fps_set;
@@ -736,15 +819,21 @@ static td_s32 cmos_init_ae_exp_function(ot_isp_ae_sensor_exp_func *exp_func)
     exp_func->pfn_cmos_get_inttime_max		= cmos_get_inttime_max;
     exp_func->pfn_cmos_ae_fswdr_attr_set	= cmos_ae_fswdr_attr_set;
 
-    return TD_SUCCESS;
+    return;
 }
 
-static td_s32 cmos_get_awb_default(ot_vi_pipe vi_pipe, ot_isp_awb_sensor_default *awb_sns_dft)
+static td_s32 cmos_awb_get_default(ot_vi_pipe vi_pipe, ot_isp_awb_sensor_default *awb_sns_dft)
 {
+    cis_info *cis = TD_NULL;
     ot_isp_sns_state *sns_state = TD_NULL;
 
+    sns_check_pipe_return(vi_pipe);
     sns_check_pointer_return(awb_sns_dft);
-    sns_state = sc500ai_get_ctx(vi_pipe);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_return(cis);
+
+    sns_state = cis->sns_state;
     sns_check_pointer_return(sns_state);
 
     (td_void)memset_s(awb_sns_dft, sizeof(ot_isp_awb_sensor_default), 0, sizeof(ot_isp_awb_sensor_default));
@@ -785,38 +874,36 @@ static td_s32 cmos_get_awb_default(ot_vi_pipe vi_pipe, ot_isp_awb_sensor_default
             break;
     }
 
-    awb_sns_dft->init_rgain = g_init_wb_gain[vi_pipe][0]; /* 0: Rgain */
-    awb_sns_dft->init_ggain = g_init_wb_gain[vi_pipe][1]; /* 1: Ggain */
-    awb_sns_dft->init_bgain = g_init_wb_gain[vi_pipe][2]; /* 2: Bgain */
-    awb_sns_dft->sample_rgain = g_sample_r_gain[vi_pipe];
-    awb_sns_dft->sample_bgain = g_sample_b_gain[vi_pipe];
+    awb_sns_dft->init_rgain = cis->init_wb_r_gain;
+    awb_sns_dft->init_ggain = cis->init_wb_g_gain;
+    awb_sns_dft->init_bgain = cis->init_wb_b_gain;
+    awb_sns_dft->sample_rgain = cis->sample_r_gain;
+    awb_sns_dft->sample_bgain = cis->sample_b_gain;
 
     return TD_SUCCESS;
 }
 
-static td_s32 cmos_init_awb_exp_function(ot_isp_awb_sensor_exp_func *exp_func)
+static td_void cmos_init_awb_exp_function(ot_isp_awb_sensor_exp_func *exp_func)
 {
-    sns_check_pointer_return(exp_func);
-
     (td_void)memset_s(exp_func, sizeof(ot_isp_awb_sensor_exp_func), 0, sizeof(ot_isp_awb_sensor_exp_func));
 
-    exp_func->pfn_cmos_get_awb_default = cmos_get_awb_default;
+    exp_func->pfn_cmos_get_awb_default = cmos_awb_get_default;
 
-    return TD_SUCCESS;
+    return;
 }
 
-static ot_isp_cmos_dng_color_param g_dng_color_param = {{ 286, 256, 608 }, { 415, 256, 429 },
-    { 2810, { 0x01AC, 0x8093, 0x8019, 0x8070, 0x01EA, 0x807A, 0x802A, 0x80F3, 0x021D }},
-    { 4940, { 0x01D7, 0x8084, 0x8053, 0x8053, 0x01D9, 0x8086, 0x8010, 0x80B3, 0x01C3 }}};
-
-static td_void cmos_get_isp_dng_default(const ot_isp_sns_state *sns_state, ot_isp_cmos_default *isp_def)
+static td_void cmos_isp_get_dng_default(const ot_isp_sns_state *sns_state, ot_isp_cmos_default *isp_def)
 {
-    (td_void)memcpy_s(&isp_def->dng_color_param, sizeof(ot_isp_cmos_dng_color_param), &g_dng_color_param,
+    ot_isp_cmos_dng_color_param dng_color_param = {{ 286, 256, 608 }, { 415, 256, 429 },
+        { 2810, { 0x01AC, 0x8093, 0x8019, 0x8070, 0x01EA, 0x807A, 0x802A, 0x80F3, 0x021D }},
+        { 4940, { 0x01D7, 0x8084, 0x8053, 0x8053, 0x01D9, 0x8086, 0x8010, 0x80B3, 0x01C3 }}};
+
+    (td_void)memcpy_s(&isp_def->dng_color_param, sizeof(ot_isp_cmos_dng_color_param), &dng_color_param,
                       sizeof(ot_isp_cmos_dng_color_param));
 
     switch (sns_state->img_mode) {
         case SC500AI_1080P_100FPS_10BIT_LINEAR_MODE:
-        case SC500AI_800P_60FPS_10BIT_LINEAR_MODE:
+        case SC500AI_800P_90FPS_10BIT_LINEAR_MODE:
         case SC500AI_5M_30FPS_10BIT_LINEAR_MODE:
             isp_def->sns_mode.dng_raw_format.bits_per_sample = DNG_RAW_FORMAT_BIT_LINEAR; /* 10bit */
             isp_def->sns_mode.dng_raw_format.white_level = DNG_RAW_FORMAT_WHITE_LEVEL_LINEAR; /* max 1023 */
@@ -854,7 +941,7 @@ static td_void cmos_get_isp_dng_default(const ot_isp_sns_state *sns_state, ot_is
     return;
 }
 
-static void cmos_get_isp_linear_default(ot_isp_cmos_default *isp_def)
+static void cmos_isp_get_linear_default(ot_isp_cmos_default *isp_def)
 {
     isp_def->key.bit1_demosaic         = 1;
     isp_def->demosaic                  = &g_cmos_demosaic;
@@ -887,7 +974,7 @@ static void cmos_get_isp_linear_default(ot_isp_cmos_default *isp_def)
     return;
 }
 
-static void cmos_get_isp_wdr_default(ot_isp_cmos_default *isp_def)
+static void cmos_isp_get_wdr_default(ot_isp_cmos_default *isp_def)
 {
     isp_def->key.bit1_dpc            = 1;
     isp_def->dpc                     = &g_cmos_dpc_wdr;
@@ -925,12 +1012,13 @@ static void cmos_get_isp_wdr_default(ot_isp_cmos_default *isp_def)
     return;
 }
 
-static td_s32 cmos_get_isp_default(ot_vi_pipe vi_pipe, ot_isp_cmos_default *isp_def)
+static td_s32 cmos_isp_get_default(ot_vi_pipe vi_pipe, ot_isp_cmos_default *isp_def)
 {
     ot_isp_sns_state *sns_state = TD_NULL;
 
+    sns_check_pipe_return(vi_pipe);
     sns_check_pointer_return(isp_def);
-    sns_state = sc500ai_get_ctx(vi_pipe);
+    sns_state = cmos_get_state(vi_pipe);
     sns_check_pointer_return(sns_state);
 
     (td_void)memset_s(isp_def, sizeof(ot_isp_cmos_default), 0, sizeof(ot_isp_cmos_default));
@@ -956,13 +1044,13 @@ static td_s32 cmos_get_isp_default(ot_vi_pipe vi_pipe, ot_isp_cmos_default *isp_
 #endif
     switch (sns_state->wdr_mode) {
         case OT_WDR_MODE_NONE:
-            cmos_get_isp_linear_default(isp_def);
+            cmos_isp_get_linear_default(isp_def);
             break;
         case OT_WDR_MODE_2To1_LINE:
-            cmos_get_isp_wdr_default(isp_def);
+            cmos_isp_get_wdr_default(isp_def);
             break;
         default:
-            cmos_get_isp_linear_default(isp_def);
+            cmos_isp_get_linear_default(isp_def);
             break;
     }
 
@@ -974,18 +1062,19 @@ static td_s32 cmos_get_isp_default(ot_vi_pipe vi_pipe, ot_isp_cmos_default *isp_
 
     isp_def->sns_mode.sns_id = SC500AI_ID;
     isp_def->sns_mode.sns_mode = sns_state->img_mode;
-    cmos_get_isp_dng_default(sns_state, isp_def);
+    cmos_isp_get_dng_default(sns_state, isp_def);
 
     return TD_SUCCESS;
 }
 
-static td_s32 cmos_get_isp_black_level(ot_vi_pipe vi_pipe, ot_isp_cmos_black_level *black_level)
+static td_s32 cmos_isp_get_black_level(ot_vi_pipe vi_pipe, ot_isp_cmos_black_level *black_level)
 {
     td_s32  i;
     ot_isp_sns_state *sns_state = TD_NULL;
 
+    sns_check_pipe_return(vi_pipe);
     sns_check_pointer_return(black_level);
-    sns_state = sc500ai_get_ctx(vi_pipe);
+    sns_state = cmos_get_state(vi_pipe);
     sns_check_pointer_return(sns_state);
 
     (td_void)memcpy_s(black_level, sizeof(ot_isp_cmos_black_level), &g_cmos_blc, sizeof(ot_isp_cmos_black_level));
@@ -1010,20 +1099,28 @@ static td_s32 cmos_get_isp_black_level(ot_vi_pipe vi_pipe, ot_isp_cmos_black_lev
     return TD_SUCCESS;
 }
 
-static td_s32 cmos_get_isp_blc_clamp_info(ot_vi_pipe vi_pipe, td_bool *blc_clamp_en)
+static td_s32 cmos_isp_get_blc_clamp_info(ot_vi_pipe vi_pipe, td_bool *blc_clamp_en)
 {
+    cis_info *cis = TD_NULL;
+
+    sns_check_pipe_return(vi_pipe);
     sns_check_pointer_return(blc_clamp_en);
 
-    *blc_clamp_en = blc_clamp_info[vi_pipe];
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_return(cis);
+
+    *blc_clamp_en = cis->blc_clamp_info;
 
     return TD_SUCCESS;
 }
 
-static td_s32 cmos_set_wdr_mode(ot_vi_pipe vi_pipe, td_u8 mode)
+static td_s32 cmos_isp_set_wdr_mode(ot_vi_pipe vi_pipe, td_u8 mode)
 {
     ot_isp_sns_state *sns_state = TD_NULL;
 
-    sns_state = sc500ai_get_ctx(vi_pipe);
+    sns_check_pipe_return(vi_pipe);
+
+    sns_state = cmos_get_state(vi_pipe);
     sns_check_pointer_return(sns_state);
 
     sns_state->sync_init = TD_FALSE;
@@ -1049,11 +1146,12 @@ static td_s32 cmos_set_wdr_mode(ot_vi_pipe vi_pipe, td_u8 mode)
     return TD_SUCCESS;
 }
 
-static td_void cmos_comm_sns_reg_info_init(ot_vi_pipe vi_pipe, ot_isp_sns_state *sns_state)
+static td_void cmos_comm_sns_reg_info_init(cis_info *cis, ot_isp_sns_state *sns_state)
 {
     td_u32 i;
+
     sns_state->regs_info[0].sns_type = OT_ISP_SNS_TYPE_I2C;
-    sns_state->regs_info[0].com_bus.i2c_dev = g_bus_info[vi_pipe].i2c_dev;
+    sns_state->regs_info[0].com_bus.i2c_dev = cis->bus_info.i2c_dev;
     sns_state->regs_info[0].cfg2_valid_delay_max = 2; /* delay_max 2 */
     sns_state->regs_info[0].reg_num = REG_MAX_IDX;
 
@@ -1150,16 +1248,22 @@ static td_void cmos_sns_reg_info_update(ot_vi_pipe vi_pipe, ot_isp_sns_state *sn
     return;
 }
 
-static td_s32 cmos_get_sns_regs_info(ot_vi_pipe vi_pipe, ot_isp_sns_regs_info *sns_regs_info)
+static td_s32 cmos_isp_get_sns_regs_info(ot_vi_pipe vi_pipe, ot_isp_sns_regs_info *sns_regs_info)
 {
+    cis_info *cis = TD_NULL;
     ot_isp_sns_state *sns_state = TD_NULL;
 
+    sns_check_pipe_return(vi_pipe);
     sns_check_pointer_return(sns_regs_info);
-    sns_state = sc500ai_get_ctx(vi_pipe);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_return(cis);
+
+    sns_state = cis->sns_state;
     sns_check_pointer_return(sns_state);
 
     if ((sns_state->sync_init == TD_FALSE) || (sns_regs_info->config == TD_FALSE)) {
-        cmos_comm_sns_reg_info_init(vi_pipe, sns_state);
+        cmos_comm_sns_reg_info_init(cis, sns_state);
         if (sns_state->wdr_mode == OT_WDR_MODE_2To1_LINE) {
             /* VC 2t1 Mode Regs */
             cmos_2to1_line_wdr_sns_reg_info_init(vi_pipe, sns_state);
@@ -1179,58 +1283,69 @@ static td_s32 cmos_get_sns_regs_info(ot_vi_pipe vi_pipe, ot_isp_sns_regs_info *s
     return TD_SUCCESS;
 }
 
-static td_void cmos_config_image_mode_param(ot_vi_pipe vi_pipe, td_u8 sns_image_mode,
+static td_void cmos_isp_config_image_mode_param(ot_vi_pipe vi_pipe, td_u8 sns_image_mode,
     ot_isp_sns_state *sns_state)
 {
     ot_unused(vi_pipe);
     switch (sns_image_mode) { ;
         case SC500AI_1080P_100FPS_10BIT_LINEAR_MODE:
-            sns_state->fl_std = SC500AI_VMAX_LINEAR_100;
+            sns_state->fl_std = SC500AI_VMAX_LINEAR_100 << 1;
             break;
-        case SC500AI_800P_60FPS_10BIT_LINEAR_MODE:
-            sns_state->fl_std = SC500AI_VMAX_LINEAR_90;
+        case SC500AI_800P_90FPS_10BIT_LINEAR_MODE:
+            sns_state->fl_std = SC500AI_VMAX_LINEAR_90 << 1;
             break;
         case SC500AI_5M_30FPS_10BIT_LINEAR_MODE:
-            sns_state->fl_std = SC500AI_VMAX_LINEAR;
+            sns_state->fl_std = SC500AI_VMAX_LINEAR << 1;
             break;
         case SC500AI_5M_30FPS_10BIT_2TO1_VC_MODE:
-            sns_state->fl_std = SC500AI_VMAX_2TO1_LINE_WDR;
+            sns_state->fl_std = SC500AI_VMAX_2TO1_LINE_WDR << 1;
             break;
         default:
-            sns_state->fl_std = SC500AI_VMAX_LINEAR;
+            sns_state->fl_std = SC500AI_VMAX_LINEAR << 1;
             break;
     }
 
     return;
 }
 
-static td_s32 cmos_set_image_mode(ot_vi_pipe vi_pipe, const ot_isp_cmos_sns_image_mode *sns_image_mode)
+static td_s32 cmos_isp_set_image_mode(ot_vi_pipe vi_pipe, const ot_isp_cmos_sns_image_mode *sns_image_mode)
 {
     td_u32 i;
     td_u8 image_mode;
+    cis_info *cis = TD_NULL;
     ot_isp_sns_state *sns_state = TD_NULL;
+
+    sns_check_pipe_return(vi_pipe);
     sns_check_pointer_return(sns_image_mode);
-    sns_state = sc500ai_get_ctx(vi_pipe);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_return(cis);
+
+    sns_state = cis->sns_state;
     sns_check_pointer_return(sns_state);
 
-    image_mode = sns_state->img_mode;
+    image_mode = sns_image_mode->sns_mode;
 
     for (i = 0; i < SC500AI_MODE_MAX; i++) {
-        if (sns_image_mode->fps <= g_sc500ai_mode_tbl[i].max_fps &&
-            sns_image_mode->width <= g_sc500ai_mode_tbl[i].width &&
-            sns_image_mode->height <= g_sc500ai_mode_tbl[i].height &&
-            sns_state->wdr_mode == g_sc500ai_mode_tbl[i].wdr_mode) {
+        if (sns_image_mode->fps <= cis->mode_tbl[i].max_fps &&
+            sns_image_mode->width <= cis->mode_tbl[i].width &&
+            sns_image_mode->height <= cis->mode_tbl[i].height &&
+            sns_state->wdr_mode == cis->mode_tbl[i].wdr_mode) {
             // image_mode = (sc500ai_res_mode)i;
+            printf("Width:%u, Height:%u, Fps:%f, WDRMode:%d Width:%u, Height:%u, Fps:%f, WDRMode:%d\n",
+                (sns_image_mode)->width, (sns_image_mode)->height, (sns_image_mode)->fps, 
+                (sns_state)->wdr_mode,
+                cis->mode_tbl[i].width, cis->mode_tbl[i].height, cis->mode_tbl[i].max_fps, cis->mode_tbl[i].wdr_mode);
             break;
         }
     }
 
     if (i >= SC500AI_MODE_MAX) {
-        sc500ai_err_mode_print(sns_image_mode, sns_state);
+        cmos_err_mode_print(sns_image_mode, sns_state);
         return TD_FAILURE;
     }
 
-    cmos_config_image_mode_param(vi_pipe, image_mode, sns_state);
+    cmos_isp_config_image_mode_param(vi_pipe, image_mode, sns_state);
 
     if ((sns_state->init == TD_TRUE) && (image_mode == sns_state->img_mode)) {
         return OT_ISP_DO_NOT_NEED_SWITCH_IMAGEMODE; /* Don't need to switch image_mode */
@@ -1244,20 +1359,93 @@ static td_s32 cmos_set_image_mode(ot_vi_pipe vi_pipe, const ot_isp_cmos_sns_imag
     return TD_SUCCESS;
 }
 
-static td_void cmos_sns_global_init(ot_vi_pipe vi_pipe)
+static void cmos_isp_init(ot_vi_pipe vi_pipe)
+{
+    td_s32           ret;
+    ot_wdr_mode      wdr_mode;
+    td_u8            img_mode;
+    cis_info *cis = TD_NULL;
+    ot_isp_sns_state *sensor_state = TD_NULL;
+
+    sns_check_pipe_void_return(vi_pipe);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_void_return(cis);
+
+    sensor_state = cis->sns_state;
+    sns_check_pointer_void_return(sensor_state);
+
+    wdr_mode    = sensor_state->wdr_mode;
+    img_mode    = sensor_state->img_mode;
+
+    cis->i2c.addr = SC500AI_I2C_ADDR;
+    cis->i2c.addr_byte_num = SC500AI_ADDR_BYTE;
+    cis->i2c.data_byte_num = SC500AI_DATA_BYTE;
+
+    ret = cis_i2c_init(cis);
+    if (ret != TD_SUCCESS) {
+        isp_err_trace("i2c init failed!\n");
+        return;
+    }
+
+    /* When sensor first init, config all registers */
+    if (OT_WDR_MODE_2To1_LINE == wdr_mode) {
+        if (SC500AI_5M_30FPS_10BIT_2TO1_VC_MODE == img_mode) {
+            sc500ai_vc_wdr_2t1_5m30_10bit_init(cis);
+        } else {
+        }
+    } else {
+        if(SC500AI_5M_30FPS_10BIT_LINEAR_MODE == img_mode)
+            sc500ai_linear_5m30_10bit_init(cis);
+        else if(SC500AI_1080P_100FPS_10BIT_LINEAR_MODE == img_mode)
+            sc500ai_linear_1080p100_10bit_init(cis);
+        else if(SC500AI_800P_90FPS_10BIT_LINEAR_MODE == img_mode)
+            sc500ai_linear_800p90_10bit_init(cis);
+    }
+
+    sensor_state->init = TD_TRUE;
+
+    return;
+}
+
+static void cmos_isp_exit(ot_vi_pipe vi_pipe)
+{
+    td_s32 ret;
+    cis_info *cis = TD_NULL;
+
+    sns_check_pipe_void_return(vi_pipe);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_void_return(cis);
+
+    ret = cis_i2c_exit(cis);
+    if (ret != TD_SUCCESS) {
+        isp_err_trace("SC500AI exit failed!\n");
+    }
+
+    return;
+}
+
+static td_void cmos_isp_global_init(ot_vi_pipe vi_pipe)
 {
     ot_isp_sns_state *sns_state = TD_NULL;
+    cis_info *cis = TD_NULL;
 
-    sns_state = sc500ai_get_ctx(vi_pipe);
+    sns_check_pipe_void_return(vi_pipe);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_void_return(cis);
+
+    sns_state = cis->sns_state;
     sns_check_pointer_void_return(sns_state);
 
     sns_state->init      = TD_FALSE;
     sns_state->sync_init = TD_FALSE;
     sns_state->img_mode  = SC500AI_5M_30FPS_10BIT_LINEAR_MODE;
     sns_state->wdr_mode  = OT_WDR_MODE_NONE;
-    sns_state->fl_std    = SC500AI_VMAX_LINEAR;
-    sns_state->fl[0]     = SC500AI_VMAX_LINEAR;
-    sns_state->fl[1]     = SC500AI_VMAX_LINEAR;
+    sns_state->fl_std    = SC500AI_VMAX_LINEAR << 1;
+    sns_state->fl[0]     = SC500AI_VMAX_LINEAR << 1;
+    sns_state->fl[1]     = SC500AI_VMAX_LINEAR << 1;
 
     (td_void)memset_s(&sns_state->regs_info[0], sizeof(ot_isp_sns_regs_info), 0, sizeof(ot_isp_sns_regs_info));
     (td_void)memset_s(&sns_state->regs_info[1], sizeof(ot_isp_sns_regs_info), 0, sizeof(ot_isp_sns_regs_info));
@@ -1265,24 +1453,32 @@ static td_void cmos_sns_global_init(ot_vi_pipe vi_pipe)
     return;
 }
 
-static td_void cmos_set_pixel_detect(ot_vi_pipe vi_pipe, td_bool enable)
+static td_void cmos_isp_set_pixel_detect(ot_vi_pipe vi_pipe, td_bool enable)
 {
     td_u32 full_lines_5fps;
     ot_isp_sns_state *sns_state = TD_NULL;
+    cis_info *cis = TD_NULL;
+    cis_i2c *i2c = TD_NULL;
 
-    sns_state = sc500ai_get_ctx(vi_pipe);
+    sns_check_pipe_void_return(vi_pipe);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_void_return(cis);
+
+    i2c = &cis->i2c;
+    sns_state = cis->sns_state;
     sns_check_pointer_void_return(sns_state);
 
     if (sns_state->wdr_mode == OT_WDR_MODE_2To1_LINE) {
         return;
     } else {
         if (sns_state->img_mode == SC500AI_5M_30FPS_10BIT_LINEAR_MODE) {
-            full_lines_5fps = (SC500AI_VMAX_LINEAR * STANDARD_FPS) / 5; /* 30fps, 5fps */
+            full_lines_5fps = (SC500AI_5M_30FPS_10BIT_LINEAR_MODE * STANDARD_FPS) / 5; /* 30fps, 5fps */
         } 
         else if (sns_state->img_mode == SC500AI_1080P_100FPS_10BIT_LINEAR_MODE) {
             full_lines_5fps = (SC500AI_VMAX_LINEAR_100 * SC500AI_FPS_MAX_LINEAR_100) / 5; /* 60fps, 5fps */
         } 
-        else if (sns_state->img_mode == SC500AI_800P_60FPS_10BIT_LINEAR_MODE) {
+        else if (sns_state->img_mode == SC500AI_800P_90FPS_10BIT_LINEAR_MODE) {
             full_lines_5fps = (SC500AI_VMAX_LINEAR_90 * SC500AI_FPS_MAX_LINEAR_90) / 5; /* 60fps, 5fps */
         } 
         else {
@@ -1291,208 +1487,175 @@ static td_void cmos_set_pixel_detect(ot_vi_pipe vi_pipe, td_bool enable)
     }
 
     if (enable) { /* setup for ISP pixel calibration mode */
-        sc500ai_write_register(vi_pipe, SC500AI_AGAIN_L_ADDR, 0x40);
-        sc500ai_write_register(vi_pipe, SC500AI_AGAIN_H_ADDR, 0x03);
+        cis_write_reg(i2c, SC500AI_AGAIN_L_ADDR, 0x40);
+        cis_write_reg(i2c, SC500AI_AGAIN_H_ADDR, 0x03);
 
-        sc500ai_write_register(vi_pipe, SC500AI_DGAIN_H_ADDR, 0x00);
-        sc500ai_write_register(vi_pipe, SC500AI_DGAIN_L_ADDR, 0x80);
+        cis_write_reg(i2c, SC500AI_DGAIN_H_ADDR, 0x00);
+        cis_write_reg(i2c, SC500AI_DGAIN_L_ADDR, 0x80);
 
-        sc500ai_write_register(vi_pipe, SC500AI_VMAX_L_ADDR, low_8bits(full_lines_5fps));
-        sc500ai_write_register(vi_pipe, SC500AI_VMAX_H_ADDR, high_8bits(full_lines_5fps));
+        cis_write_reg(i2c, SC500AI_VMAX_L_ADDR, low_8bits(full_lines_5fps));
+        cis_write_reg(i2c, SC500AI_VMAX_H_ADDR, high_8bits(full_lines_5fps));
 
-        sc500ai_write_register(vi_pipe, SC500AI_EXPO_L_ADDR, lower_4bits(full_lines_5fps - 10)); /* sub 10 */
-        sc500ai_write_register(vi_pipe, SC500AI_EXPO_M_ADDR, higher_8bits(full_lines_5fps - 10)); /* sub 10 */
-        sc500ai_write_register(vi_pipe, SC500AI_EXPO_H_ADDR, higher_4bits(full_lines_5fps - 10)); /* sub 10 */
+        cis_write_reg(i2c, SC500AI_EXPO_L_ADDR, lower_4bits(full_lines_5fps - 10)); /* sub 10 */
+        cis_write_reg(i2c, SC500AI_EXPO_M_ADDR, higher_8bits(full_lines_5fps - 10)); /* sub 10 */
+        cis_write_reg(i2c, SC500AI_EXPO_H_ADDR, higher_4bits(full_lines_5fps - 10)); /* sub 10 */
     } else { /* setup for ISP 'normal mode' */
         sns_state->fl_std = (sns_state->fl_std > SC500AI_FULL_LINES_MAX_LINEAR) ?
             SC500AI_FULL_LINES_MAX_LINEAR : sns_state->fl_std;
-        sc500ai_write_register(vi_pipe, SC500AI_VMAX_L_ADDR, low_8bits(sns_state->fl_std));
-        sc500ai_write_register(vi_pipe, SC500AI_VMAX_H_ADDR, high_8bits(sns_state->fl_std));
+        cis_write_reg(i2c, SC500AI_VMAX_L_ADDR, low_8bits(sns_state->fl_std));
+        cis_write_reg(i2c, SC500AI_VMAX_H_ADDR, high_8bits(sns_state->fl_std));
         sns_state->sync_init = TD_FALSE;
     }
     return;
 }
 
-static td_s32 cmos_init_sensor_exp_function(ot_isp_sns_exp_func *sensor_exp_func)
+static td_void cmos_init_sensor_exp_function(ot_isp_sns_exp_func *sensor_exp_func)
 {
-    sns_check_pointer_return(sensor_exp_func);
-
     (td_void)memset_s(sensor_exp_func, sizeof(ot_isp_sns_exp_func), 0, sizeof(ot_isp_sns_exp_func));
 
-    sensor_exp_func->pfn_cmos_sns_init				= sc500ai_init;
-    sensor_exp_func->pfn_cmos_sns_exit				= sc500ai_exit;
-    sensor_exp_func->pfn_cmos_sns_global_init		= cmos_sns_global_init;
-    sensor_exp_func->pfn_cmos_set_image_mode		= cmos_set_image_mode;
-    sensor_exp_func->pfn_cmos_set_wdr_mode			= cmos_set_wdr_mode;
-    sensor_exp_func->pfn_cmos_get_isp_default		= cmos_get_isp_default;
-    sensor_exp_func->pfn_cmos_get_isp_black_level	= cmos_get_isp_black_level;
-    sensor_exp_func->pfn_cmos_get_blc_clamp_info	= cmos_get_isp_blc_clamp_info;
-    sensor_exp_func->pfn_cmos_set_pixel_detect		= cmos_set_pixel_detect;
-    sensor_exp_func->pfn_cmos_get_sns_reg_info		= cmos_get_sns_regs_info;
-
-    return TD_SUCCESS;
+    sensor_exp_func->pfn_cmos_sns_init              = cmos_isp_init;
+    sensor_exp_func->pfn_cmos_sns_exit              = cmos_isp_exit;
+    sensor_exp_func->pfn_cmos_sns_global_init       = cmos_isp_global_init;
+    sensor_exp_func->pfn_cmos_set_image_mode        = cmos_isp_set_image_mode;
+    sensor_exp_func->pfn_cmos_set_wdr_mode          = cmos_isp_set_wdr_mode;
+    sensor_exp_func->pfn_cmos_get_isp_default       = cmos_isp_get_default;
+    sensor_exp_func->pfn_cmos_get_isp_black_level   = cmos_isp_get_black_level;
+    sensor_exp_func->pfn_cmos_get_blc_clamp_info    = cmos_isp_get_blc_clamp_info;
+    sensor_exp_func->pfn_cmos_set_pixel_detect      = cmos_isp_set_pixel_detect;
+    sensor_exp_func->pfn_cmos_get_sns_reg_info      = cmos_isp_get_sns_regs_info;
 }
 
-static td_s32 sc500ai_set_bus_info(ot_vi_pipe vi_pipe, ot_isp_sns_commbus sns_bus_info)
+static td_s32 cmos_register_callback(ot_vi_pipe vi_pipe, ot_isp_3a_alg_lib *ae_lib, ot_isp_3a_alg_lib *awb_lib)
 {
-    g_bus_info[vi_pipe].i2c_dev = sns_bus_info.i2c_dev;
+    td_s32 ret;
+    cis_register reg = {0};
+    cis_info *cis = TD_NULL;
 
-    return TD_SUCCESS;
-}
+    sns_check_pipe_return(vi_pipe);
+    sns_check_pointer_return(ae_lib);
+    sns_check_pointer_return(awb_lib);
 
-static td_s32 sensor_ctx_init(ot_vi_pipe vi_pipe)
-{
-    ot_isp_sns_state *sns_state_ctx = TD_NULL;
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_return(cis);
 
-    sns_state_ctx = sc500ai_get_ctx(vi_pipe);
-    if (sns_state_ctx == TD_NULL) {
-        sns_state_ctx = (ot_isp_sns_state *)malloc(sizeof(ot_isp_sns_state));
-        if (sns_state_ctx == TD_NULL) {
-            isp_err_trace("Isp[%d] SnsCtx malloc memory failed!\n", vi_pipe);
-            return OT_ERR_ISP_NOMEM;
-        }
+    cis->pipe = vi_pipe;
+
+    reg.ae_lib = ae_lib;
+    reg.awb_lib = awb_lib;
+
+    cmos_init_sensor_exp_function(&reg.isp_register.sns_exp);
+    cmos_init_ae_exp_function(&reg.ae_register.sns_exp);
+    cmos_init_awb_exp_function(&reg.awb_register.sns_exp);
+
+    ret = cis_register_callback(cis, &reg);
+    if (ret != TD_SUCCESS) {
+        isp_err_trace("cis_register_callback failed!\n");
+        return ret;
     }
 
-    (td_void)memset_s(sns_state_ctx, sizeof(ot_isp_sns_state), 0, sizeof(ot_isp_sns_state));
+    return TD_SUCCESS;
+}
 
-    sc500ai_set_ctx(vi_pipe, sns_state_ctx);
+static td_s32 cmos_unregister_callback(ot_vi_pipe vi_pipe, ot_isp_3a_alg_lib *ae_lib, ot_isp_3a_alg_lib *awb_lib)
+{
+    td_s32 ret;
+    cis_register reg = {0};
+    cis_info *cis = TD_NULL;
+
+    sns_check_pipe_return(vi_pipe);
+    sns_check_pointer_return(ae_lib);
+    sns_check_pointer_return(awb_lib);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_return(cis);
+
+    reg.ae_lib = ae_lib;
+    reg.awb_lib = awb_lib;
+    ret = cis_unregister_callback(cis, &reg);
+    if (ret != TD_SUCCESS) {
+        isp_err_trace("cis_register_callback failed!\n");
+        return ret;
+    }
 
     return TD_SUCCESS;
 }
 
-static td_void sensor_ctx_exit(ot_vi_pipe vi_pipe)
+static void cmos_standby(ot_vi_pipe vi_pipe)
 {
-    ot_isp_sns_state *sns_state_ctx = TD_NULL;
-
-    sns_state_ctx = sc500ai_get_ctx(vi_pipe);
-    sns_free(sns_state_ctx);
-    sc500ai_reset_ctx(vi_pipe);
-
+    ot_unused(vi_pipe);
     return;
 }
 
-static td_s32 sensor_register_callback(ot_vi_pipe vi_pipe, ot_isp_3a_alg_lib *ae_lib, ot_isp_3a_alg_lib *awb_lib)
+static void cmos_restart(ot_vi_pipe vi_pipe)
 {
-    td_s32 ret;
-    ot_isp_sns_register isp_register;
-    ot_isp_ae_sensor_register ae_register;
-    ot_isp_awb_sensor_register awb_register;
-    ot_isp_sns_attr_info sns_attr_info;
+    ot_unused(vi_pipe);
+    return;
+}
 
-    sns_check_pointer_return(ae_lib);
-    sns_check_pointer_return(awb_lib);
+static td_s32 cmos_write_register(ot_vi_pipe vi_pipe, td_u32 addr, td_u32 data)
+{
+    cis_info *cis = TD_NULL;
 
-    ret = sensor_ctx_init(vi_pipe);
-    if (ret != TD_SUCCESS) {
-        return TD_FAILURE;
-    }
+    sns_check_pipe_return(vi_pipe);
 
-    sns_attr_info.sns_id = SC500AI_ID;
-    ret = cmos_init_sensor_exp_function(&isp_register.sns_exp);
-    if (ret != TD_SUCCESS) {
-        isp_err_trace("cmos init exp function failed!\n");
-        return TD_FAILURE;
-    }
-    ret = ot_mpi_isp_sensor_reg_callback(vi_pipe, &sns_attr_info, &isp_register);
-    if (ret != TD_SUCCESS) {
-        isp_err_trace("sensor register callback function failed!\n");
-        return ret;
-    }
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_return(cis);
 
-    ret = cmos_init_ae_exp_function(&ae_register.sns_exp);
-    if (ret != TD_SUCCESS) {
-        isp_err_trace("cmos init ae exp function failed!\n");
-        return TD_FAILURE;
-    }
-    ret = ot_mpi_ae_sensor_reg_callback(vi_pipe, ae_lib, &sns_attr_info, &ae_register);
-    if (ret != TD_SUCCESS) {
-        isp_err_trace("sensor register callback function to ae lib failed!\n");
-        return ret;
-    }
-
-    ret = cmos_init_awb_exp_function(&awb_register.sns_exp);
-    if (ret != TD_SUCCESS) {
-        isp_err_trace("cmos init awb exp function failed!\n");
-        return TD_FAILURE;
-    }
-    ret = ot_mpi_awb_sensor_reg_callback(vi_pipe, awb_lib, &sns_attr_info, &awb_register);
-    if (ret != TD_SUCCESS) {
-        isp_err_trace("sensor register callback function to awb lib failed!\n");
-        return ret;
-    }
+    sns_check_return(cis_write_reg(&cis->i2c, addr, data));
 
     return TD_SUCCESS;
 }
 
-static td_s32 sensor_unregister_callback(ot_vi_pipe vi_pipe, ot_isp_3a_alg_lib *ae_lib, ot_isp_3a_alg_lib *awb_lib)
+static td_s32 cmos_read_register(ot_vi_pipe vi_pipe, td_u32 addr)
 {
-    td_s32 ret;
-
-    sns_check_pointer_return(ae_lib);
-    sns_check_pointer_return(awb_lib);
-
-    ret = ot_mpi_isp_sensor_unreg_callback(vi_pipe, SC500AI_ID);
-    if (ret != TD_SUCCESS) {
-        isp_err_trace("sensor unregister callback function failed!\n");
-        return ret;
-    }
-
-    ret = ot_mpi_ae_sensor_unreg_callback(vi_pipe, ae_lib, SC500AI_ID);
-    if (ret != TD_SUCCESS) {
-        isp_err_trace("sensor unregister callback function to ae lib failed!\n");
-        return ret;
-    }
-
-    ret = ot_mpi_awb_sensor_unreg_callback(vi_pipe, awb_lib, SC500AI_ID);
-    if (ret != TD_SUCCESS) {
-        isp_err_trace("sensor unregister callback function to awb lib failed!\n");
-        return ret;
-    }
-
-    sensor_ctx_exit(vi_pipe);
+    ot_unused(vi_pipe);
+    ot_unused(addr);
     return TD_SUCCESS;
 }
 
-static td_s32 sensor_set_init(ot_vi_pipe vi_pipe, ot_isp_init_attr *init_attr)
+static td_s32 cmos_set_bus_info(ot_vi_pipe vi_pipe, ot_isp_sns_commbus sns_bus_info)
 {
+    cis_info *cis = TD_NULL;
+
+    sns_check_pipe_return(vi_pipe);
+
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_return(cis);
+
+    cis->bus_info.i2c_dev = sns_bus_info.i2c_dev;
+
+    return TD_SUCCESS;
+}
+
+static td_s32 cmos_set_init(ot_vi_pipe vi_pipe, ot_isp_init_attr *init_attr)
+{
+    cis_info *cis = TD_NULL;
+
+    sns_check_pipe_return(vi_pipe);
     sns_check_pointer_return(init_attr);
 
-    g_init_exposure[vi_pipe]  = init_attr->exposure;
-    g_init_int_time[vi_pipe]  = init_attr->exp_time;
-    g_init_again[vi_pipe]     = init_attr->a_gain;
-    g_init_dgain[vi_pipe]     = init_attr->d_gain;
-    g_init_isp_dgain[vi_pipe] = init_attr->ispd_gain;
-    g_lines_per500ms[vi_pipe] = init_attr->lines_per500ms;
-    g_init_wb_gain[vi_pipe][0] = init_attr->wb_r_gain; /* 0: rgain */
-    g_init_wb_gain[vi_pipe][1] = init_attr->wb_g_gain; /* 1: ggain */
-    g_init_wb_gain[vi_pipe][2] = init_attr->wb_b_gain; /* 2: bgain */
-    g_sample_r_gain[vi_pipe] = init_attr->sample_r_gain;
-    g_sample_b_gain[vi_pipe] = init_attr->sample_b_gain;
-    g_quick_start_en[vi_pipe] = init_attr->quick_start_en;
-    g_ae_stat_pos[vi_pipe]       = init_attr->ae_stat_pos;
-    g_ae_route_ex_valid[vi_pipe] = init_attr->ae_route_ex_valid;
+    cis = cmos_get_info(vi_pipe);
+    sns_check_pointer_return(cis);
 
-    (td_void)memcpy_s(&g_init_ae_route[vi_pipe], sizeof(ot_isp_ae_route),
-                      &init_attr->ae_route, sizeof(ot_isp_ae_route));
-    (td_void)memcpy_s(&g_init_ae_route_ex[vi_pipe], sizeof(ot_isp_ae_route_ex),
-                      &init_attr->ae_route_ex, sizeof(ot_isp_ae_route_ex));
-    (td_void)memcpy_s(&g_init_ae_route_sf[vi_pipe], sizeof(ot_isp_ae_route),
-                      &init_attr->ae_route_sf, sizeof(ot_isp_ae_route));
-    (td_void)memcpy_s(&g_init_ae_route_sf_ex[vi_pipe], sizeof(ot_isp_ae_route_ex),
-                      &init_attr->ae_route_sf_ex, sizeof(ot_isp_ae_route_ex));
+    cis_init_attr(cis, init_attr);
 
     return TD_SUCCESS;
 }
 
 ot_isp_sns_obj g_sns_sc500ai_obj = {
-    .pfn_register_callback     = sensor_register_callback,
-    .pfn_un_register_callback  = sensor_unregister_callback,
-    .pfn_standby               = sc500ai_standby,
-    .pfn_restart               = sc500ai_restart,
+    .pfn_register_callback     = cmos_register_callback,
+    .pfn_un_register_callback  = cmos_unregister_callback,
+    .pfn_standby               = cmos_standby,
+    .pfn_restart               = cmos_restart,
     .pfn_mirror_flip           = TD_NULL,
     .pfn_set_blc_clamp         = TD_NULL,
-    .pfn_write_reg             = sc500ai_write_register,
-    .pfn_read_reg              = sc500ai_read_register,
-    .pfn_set_bus_info          = sc500ai_set_bus_info,
-    .pfn_set_init              = sensor_set_init
+    .pfn_write_reg             = cmos_write_register,
+    .pfn_read_reg              = cmos_read_register,
+    .pfn_set_bus_info          = cmos_set_bus_info,
+    .pfn_set_init              = cmos_set_init
 };
+
+ot_isp_sns_obj *sc500ai_get_obj(td_void)
+{
+    return &g_sns_sc500ai_obj;
+}

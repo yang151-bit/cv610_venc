@@ -70,8 +70,8 @@ extern "C" {
 #define OT_MPP_MOD_HDMI           "hdmi"
 #define OT_MPP_MOD_VGS            "vgs"
 #define OT_MPP_MOD_GDC            "gdc"
-#define OT_MPP_MOD_DIS            "dis"
-#define OT_MPP_MOD_GYRODIS        "gyrodis"
+#define OT_MPP_MOD_DIS            "dis_gme"
+#define OT_MPP_MOD_GYRODIS        "dis_gyro"
 #define OT_MPP_MOD_CHNL           "chnl"
 #define OT_MPP_MOD_VENC           "venc"
 #define OT_MPP_MOD_VENC_MSG       "venc_msg"
@@ -142,6 +142,7 @@ extern "C" {
 #define OT_MPP_MOD_VCA            "vca"
 #define OT_MPP_MOD_UVC            "uvc"
 #define OT_MPP_MOD_VI_RGBW        "vi_rgbw"
+#define OT_MPP_MOD_DEVSTAT        "devstat"
 
 typedef struct {
     td_char version[OT_MAX_VERSION_NAME_LEN];
@@ -285,6 +286,8 @@ typedef enum {
     OT_ID_SVAC3E       = 93,
     OT_ID_MIPIRX       = 94,
     OT_ID_AIDETECT     = 95,
+    OT_ID_DEVSTAT      = 96,
+    OT_ID_PSFM         = 97,
     OT_ID_BUTT,
 } ot_mod_id;
 

@@ -88,6 +88,7 @@ typedef struct {
     td_u32  strength;                /* RW; The DIS strength for different light. */
     td_bool dis_ldc_en;              /* RW; DIS ldc enable. */
     ot_dis_ldc_attr dis_ldc_attr;    /* RW; Attribute of dis LDC. */
+    td_u32 ref_slope;                /* RW; Range:[0,15]; Moving speed */
 } ot_dis_attr;
 
 /* The config of DIS */
@@ -101,6 +102,7 @@ typedef struct {
     td_u32              frame_rate;            /* RW; Frame rate. */
     td_bool             camera_steady;         /* RW; The camera is steady or not. */
     td_bool             scale;                 /* RW; Scale output image or not. */
+    td_u32              ref_num;               /* RW; Range:[0,120]; ref num for DIS. */
 } ot_dis_cfg;
 
 /* The algorithm attribute of DIS */

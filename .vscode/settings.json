@@ -5,6 +5,10 @@
         "main.h": "c",
         "ot_mipi_rx.h": "c",
         "ot_mpi_isp.h": "c",
-        "random": "c"
+        "random": "c",
+        "ot_i2c.h": "c",
+        "ot_osal.h": "c",
+        "securec.h": "c",
+        "unistd.h": "c"
     }
 }

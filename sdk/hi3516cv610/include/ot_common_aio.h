@@ -474,7 +474,7 @@ typedef struct {
 
     td_u16 ols_on;        /* suppression during clipping, default:1, range:[0, 1] */
     td_u16 speaker_nl_on; /* suppression during speaker non-linear distortion, default:1, range:[0, 1] */
-    td_u16 block_num;     /* block num, default:6, range:[6, 30] */
+    td_u16 block_num;     /* block num, default:6, range:[3, 30] */
 
     td_u16 reserved[6]; /* 6: reserved */
 } ot_ai_talk_v2_aec_cfg;

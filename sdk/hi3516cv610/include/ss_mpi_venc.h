@@ -33,6 +33,7 @@ td_s32 ss_mpi_venc_send_frame(ot_venc_chn chn, const ot_video_frame_info *frame,
 td_s32 ss_mpi_venc_send_frame_ex(ot_venc_chn chn, const ot_venc_user_frame_info *frame, td_s32 milli_sec);
 td_s32 ss_mpi_venc_send_multi_frame(ot_venc_chn chn, const ot_venc_multi_frame_info *frame, td_s32 milli_sec);
 td_s32 ss_mpi_venc_send_frame_batch_crop(ot_venc_chn chn, const ot_venc_frame_batch_crop_info *frame, td_s32 milli_sec);
+td_s32 ss_mpi_venc_send_qpmap(ot_venc_chn chn, const ot_venc_user_qpmap *qpmap);
 
 td_s32 ss_mpi_venc_set_chn_config(ot_venc_chn chn, const ot_venc_chn_config *chn_config);
 td_s32 ss_mpi_venc_get_chn_config(ot_venc_chn chn, ot_venc_chn_config *chn_config);
@@ -160,6 +161,8 @@ td_s32 ss_mpi_venc_set_svac3_sao(ot_venc_chn chn, const ot_venc_svac3_sao *svac3
 td_s32 ss_mpi_venc_get_svac3_sao(ot_venc_chn chn, ot_venc_svac3_sao *svac3_sao);
 td_s32 ss_mpi_venc_set_svac3_emulation(ot_venc_chn chn, const ot_venc_svac3_emulation *emulation);
 td_s32 ss_mpi_venc_get_svac3_emulation(ot_venc_chn chn, ot_venc_svac3_emulation *emulation);
+td_s32 ss_mpi_venc_enable_one_pack(ot_venc_chn chn, td_bool enable);
+
 #ifdef __cplusplus
 }
 #endif

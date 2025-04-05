@@ -1,5 +1,5 @@
 VENC := main.c common.c isp_profiles.c mipi_profiles.c vi_profiles.c
-SENSOR = $(SDK)/sensor/sc500ai_cmos.c $(SDK)/sensor/sc500ai_sensor_ctrl.c 
+SENSOR = $(SDK)/sensor/sensor_common.c $(SDK)/sensor/sc500ai_cmos.c $(SDK)/sensor/sc500ai_sensor_ctrl.c
 BUILD_BASE = $(CC) $(VENC) $(SENSOR) -I $(SDK)/include -L $(DRV) -o venc
 BUILD = $(BUILD_BASE) -Wl,--start-group $(LIB) -Wl,--end-group
 

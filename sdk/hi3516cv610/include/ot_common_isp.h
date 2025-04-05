@@ -168,6 +168,7 @@ typedef enum {
 #define OT_ERR_ISP_NULL_PTR         OT_DEFINE_ERR(OT_ID_ISP, OT_ERR_LEVEL_ERROR, OT_ERR_NULL_PTR)
 #define OT_ERR_ISP_ILLEGAL_PARAM    OT_DEFINE_ERR(OT_ID_ISP, OT_ERR_LEVEL_ERROR, OT_ERR_ILLEGAL_PARAM)
 #define OT_ERR_ISP_NOT_SUPPORT      OT_DEFINE_ERR(OT_ID_ISP, OT_ERR_LEVEL_ERROR, OT_ERR_NOT_SUPPORT)
+#define OT_ERR_ISP_TIMEOUT          OT_DEFINE_ERR(OT_ID_ISP, OT_ERR_LEVEL_ERROR, OT_ERR_TIMEOUT)
 
 #define OT_ERR_ISP_NOT_INIT         OT_DEFINE_ERR(OT_ID_ISP, OT_ERR_LEVEL_ERROR, OT_ERR_ISP_NOT_INIT)
 #define OT_ERR_ISP_MEM_NOT_INIT     OT_DEFINE_ERR(OT_ID_ISP, OT_ERR_LEVEL_ERROR, OT_ERR_ISP_MEM_NOT_INIT)
@@ -402,7 +403,7 @@ typedef enum {
     OT_ISP_MERGE_WDR_MODE      = 0,
     OT_ISP_MERGE_FUSION_MODE   = 1,
     OT_ISP_MERGE_BUTT
-} ot_isp_wdr_merge_mode;
+} ot_isp_wdr_merge_mode;    /* Not support for Hi3516CV608/Hi3516CV610-10B */
 
 typedef enum {
     OT_ISP_BNR_EX = 0,
@@ -418,26 +419,26 @@ typedef enum {
 typedef struct {
     td_u8 md_thr_low_gain;    /* RW;Range:[0x0,0xFF];Format:8.0 */
     td_u8 md_thr_hig_gain;    /* RW;Range:[0x0,0xFF];Format:8.0 */
-} ot_isp_fswdr_manual_attr;
+} ot_isp_fswdr_manual_attr; /* Not support for Hi3516CV608/Hi3516CV610-10B */
 
 typedef struct {
     td_u8 md_thr_low_gain[OT_ISP_WDR_RATIO_NUM][OT_ISP_AUTO_ISO_NUM];    /* RW;Range:[0x0,0xFF];Format:8.0,
                                                         OT_ISP_WDR_RATIO_NUM > 6 is not support for Hi3516CV610 */
     td_u8 md_thr_hig_gain[OT_ISP_WDR_RATIO_NUM][OT_ISP_AUTO_ISO_NUM];    /* RW;Range:[0x0,0xFF];Format:8.0,
                                                         OT_ISP_WDR_RATIO_NUM > 6 is not support for Hi3516CV610 */
-} ot_isp_fswdr_auto_attr;
+} ot_isp_fswdr_auto_attr;   /* Not support for Hi3516CV608/Hi3516CV610-10B */
 
 typedef struct {
     td_bool short_expo_chk;     /* RW;Range:[0x0,0x1];Format:1.0; */
     td_u16  short_check_threshold;   /* RW;Range:[0x0,0xFFF];Format:12.0 */
-    td_bool md_ref_flicker;
+    td_bool md_ref_flicker;         /* RW; Range: [0, 1]  not support for Hi3516CV610 */
     td_u8   mdt_still_threshold;     /* RW;Range:[0x0,0xFE];Format:8.0 */
     td_u8   mdt_full_threshold;      /* RW;Range:[0x0,0xFE];Format:8.0 */
     td_u8   mdt_long_blend;    /* RW;Range:[0x0,0xFE] */
     ot_op_mode op_type;
     ot_isp_fswdr_manual_attr manual_attr;
     ot_isp_fswdr_auto_attr   auto_attr;
-} ot_isp_fswdr_mdt_attr;
+} ot_isp_fswdr_mdt_attr;    /* Not support for Hi3516CV608/Hi3516CV610-10B */
 
 typedef struct {
     td_bool motion_comp;        /* RW;Range:[0, 0x1];Format:1.0; enable/disable motion compensation */
@@ -451,7 +452,7 @@ typedef struct {
     td_u16  force_long_hig_threshold; /* RW;Range:[0, 0xFFF];Format:12.0; data below this threshold will force to choose
                                          long frame only */
     ot_isp_fswdr_mdt_attr wdr_mdt;
-} ot_isp_wdr_combine_attr;
+} ot_isp_wdr_combine_attr;  /* Not support for Hi3516CV608/Hi3516CV610-10B */
 
 typedef struct {
     td_bool fusion_blend_en; /* not support for Hi3516CV610 */
@@ -459,13 +460,13 @@ typedef struct {
     td_u16  fusion_threshold[OT_ISP_WDR_MAX_FRAME_NUM]; /* RW; Range: [0x0, 0xFFF] */
     td_bool  fusion_force_gray_en;      /* not support for Hi3516CV610 */
     td_u8   fusion_force_blend_threshold; /* RW; Range: [0, 15], not support for Hi3516CV610 */
-} ot_isp_fusion_attr;
+} ot_isp_fusion_attr;   /* Not support for Hi3516CV608/Hi3516CV610-10B */
 
 typedef struct {
     ot_isp_wdr_merge_mode   wdr_merge_mode;
     ot_isp_wdr_combine_attr wdr_combine;
     ot_isp_fusion_attr      fusion_attr;
-} ot_isp_wdr_fs_attr;
+} ot_isp_wdr_fs_attr;   /* Not support for Hi3516CV608/Hi3516CV610-10B */
 
 typedef struct {
     td_u8 asymmetry;    /* RW; Range:[  1,  30]; Parameter0 of DRC asymmetry tone mapping curve */
@@ -524,7 +525,7 @@ typedef struct {
 
 typedef struct {
     td_bool enable;
-    ot_isp_drc_curve_select curve_select; /* RW; Range:[0x0, 0x1]; Tone mapping curve selection */
+    ot_isp_drc_curve_select curve_select; /* RW; Range:[0x0, 0x2]; Tone mapping curve selection */
     td_u8  purple_reduction_strength; /* RW; Range:[0x0, 0x80]; Purple detection and reduction strength.
            Not support Hi3516CV610 */
     td_u8  bright_gain_limit; /* RW; Range:[0x0, 0xF]; Bright area gain limit */
@@ -550,8 +551,7 @@ typedef struct {
         td_u8  local_mixing_dark[OT_ISP_DRC_LMIX_NODE_NUM]; /* RW; Range:[0x0, 0x80]; not support Hi3516CV610
                                                                 LUT of enhancement coefficients for positive details */
     };
-    td_u8  high_saturation_color_ctrl; /* RW; Range:[0x0, 0xF];
-                                         High saturation color control; not support Hi3516CV610 */
+    td_u8  high_saturation_color_ctrl; /* RW; Range:[0x0, 0xF]; High saturation color control; */
     td_u8  global_color_ctrl; /* RW; Range:[0x0, 0xF]; global color control */
 
     td_bool shoot_reduction_en; /* RW; Range:[0x0, 0x1]; shoot reduction enable */
@@ -819,9 +819,10 @@ typedef struct {
     ot_isp_bayer_format bayer;    /* RW; Range: [0, 3];Format ENUM;Shows bayer pattern */
     ot_isp_bayer_raw_bit raw_bit;  /* RW; Range: {8,10,12,14,16};Format ENUM;Shows input raw bitwidth */
 
-    td_u16  img_height; /* RW; Range: [0, 65535];Format 16.0;Input raw image height */
-    td_u16  img_width;  /* RW; Range: [0, 65535];Format 16.0;Input raw image width */
-
+    td_u16  img_height; /* RW; Range: [0, 65535];Format 16.0;limited Range:[0, SENSOR_HEIGHT_MAX],
+                           Input raw image height */
+    td_u16  img_width;  /* RW; Range: [0, 65535];Format 16.0;limited Range:[0, SENSOR_WIDTH_MAX],
+                           Input raw image width */
     td_u16  dst_img_height; /* RW; Range: [0, 65535];Format 16.0;limited Range:[0, img_height], Image height that
                                crop from input raw image, set to ImgHeight if don't need to crop */
     td_u16  dst_img_width;  /* RW; Range: [0, 65535];Format 16.0;limited Range:[0, img_width], Image width that
@@ -896,6 +897,8 @@ typedef struct {
                                                     Not support for Hi3516CV610 */
     td_u8  coring_mot_ratio[OT_ISP_AUTO_ISO_NUM];  /* RW; Range:[0, 63];Format:6.0; coring on moving area.
                                                     Not support for Hi3516CV610 */
+    td_u8  noisesd_lut[OT_ISP_BAYERNR_LUT_LENGTH1][OT_ISP_AUTO_ISO_NUM];
+                                                   /* RW; Range:[0, 255];Format:8.0; Not support for Hi3519DV500 */
 } ot_isp_nr_snr_auto_attr;
 
 typedef struct {
@@ -918,6 +921,7 @@ typedef struct {
                                     Not support for Hi3516CV610  */
     td_u8     coring_mot_ratio;  /* RW; Range:[0, 63];Format:6.0; coring on moving area.
                                     Not support for Hi3516CV610 */
+    td_u8     noisesd_lut[OT_ISP_BAYERNR_LUT_LENGTH1];  /* RW; Range:[0, 255];Format:8.0; Not support for Hi3519DV500 */
 } ot_isp_nr_snr_manual_attr;
 
 typedef struct {
@@ -999,7 +1003,7 @@ typedef struct {
                                                       motion detection fines static area strength. */
     td_u8   tfs[OT_ISP_AUTO_ISO_NUM]; /* RW; Range:[0, 255];Format:8.0; tnr absolute strength.
                                        Not support for Hi3516CV610 */
-    td_bool user_define_md[OT_ISP_AUTO_ISO_NUM];  /* RW; Range:[0, 1];Format:1.0; user define motion detection mode. */
+    td_u8   user_define_md[OT_ISP_AUTO_ISO_NUM];  /* RW; Range:[0, 2];Format:2.0; user define motion detection mode. */
     td_s16  user_define_slope[OT_ISP_AUTO_ISO_NUM];        /* RW; Range:[-32768, 32767];Format:8.8; user define motion
                                                             detection strength change with luma. */
     td_u16  user_define_dark_thresh[OT_ISP_AUTO_ISO_NUM];  /* RW; Range:[0, 65535];Format:8.8; user define motion
@@ -1021,7 +1025,7 @@ typedef struct {
     td_u8   md_static_fine_strength;  /* RW; Range:[0, 255];Format:8.0; motion detection fines static area strength */
     td_u8   tfs;                      /* RW; Range:[0, 255];Format:8.0; tnr absolute strength.
                                        Not support for Hi3516CV610 */
-    td_bool user_define_md;           /* RW; Range:[0, 1];Format:1.0; user define motion detection mode. */
+    td_u8   user_define_md;           /* RW; Range:[0, 2];Format:2.0; user define motion detection mode. */
     td_s16  user_define_slope;        /* RW; Range:[-32768, 32767];Format:8.8; user define motion detection strength
                                          change with luma. */
     td_u16  user_define_dark_thresh;  /* RW; Range:[0, 65535];Format:8.8; user define motion detection strength in
@@ -1564,7 +1568,8 @@ typedef struct {
 
 /* Defines the automatic correction attribute of the FPN removal module */
 typedef struct {
-    td_u32 strength;          /* RW;Range:[0,1023];Format:10.0;Auto correction strength */
+    td_u32 strength;          /* RW;Range:[0,1023];Format:10.0;Auto correction strength;
+                                 Not support for Hi3519DV500, Hi3516CV610 */
 } ot_isp_fpn_auto_attr;
 
 /* Defines the correction attribute of the FPN removal module */
@@ -1575,7 +1580,7 @@ typedef struct {
     ot_isp_fpn_type        fpn_type;
     ot_isp_fpn_frame_info  fpn_frm_info;
     ot_isp_fpn_manual_attr manual_attr;
-    ot_isp_fpn_auto_attr   auto_attr;
+    ot_isp_fpn_auto_attr   auto_attr; /* Not support for Hi3519DV500, Hi3516CV610 */
 } ot_isp_fpn_attr;
 
 /* Defines the manual dehaze attribute */
@@ -1962,7 +1967,7 @@ typedef struct {
     ot_isp_af_peak_mode      peak_mode;     /* RW; Range: [0,1]; AF peak value statistic mode. */
     ot_isp_af_square_mode    square_mode;   /* RW; Range: [0,1]; AF statistic square accumulate. */
     ot_isp_af_crop           crop;          /* RW; AF input image crop */
-    ot_isp_af_crop           fe_crop;       /* RW; AF input image crop for FE module */
+    ot_isp_af_crop           fe_crop;       /* RW; AF input image crop for FE module; Not support for Hi3516CV610 */
     ot_isp_af_stats_pos      stats_pos;     /* RW; Range: [0,2]; AF statistic position, it can be set to yuv or raw */
     ot_isp_af_raw_cfg        raw_cfg;       /* RW; When AF locate at RAW domain, these para should be cfg. */
     ot_isp_af_pre_filter_cfg pre_flt_cfg;   /* RW; pre filter cfg */
@@ -2163,14 +2168,14 @@ typedef struct {
                                   limited range:[max(BlkNum, ceil(width / 1024)), min(32, image_width / 20)] */
     td_u16 white_level;        /* RW; Range: [0x0, 0xFFFF];Upper limit of valid data for white region,
                                   for Bayer statistics, [0x0, 0x3FF] for RGB statistics */
-    td_u16 black_level;        /* RW; Range: [0x0, 0xFFFF];limited range: [0x0, u16WhiteLevel],
+    td_u16 black_level;        /* RW; Range: [0x0, white_level];limited range: [0x0, u16WhiteLevel],
                                   Lower limit of valid data for white region .
                                   for Bayer statistics, bitwidth is 12, for RGB statistics, bitwidth is 10 */
     td_u16 cb_max;             /* RW; Range: [0x0, 0xFFF];Maximum value of B/G for white region */
-    td_u16 cb_min;             /* RW; Range: [0x0, 0xFFF];
+    td_u16 cb_min;             /* RW; Range: [0x0, cb_max];
                                   limited range: [0x0, u16CbMax]Minimum value of B/G for white region */
     td_u16 cr_max;             /* RW; Range: [0x0, 0xFFF];Maximum value of R/G for white region */
-    td_u16 cr_min;             /* RW; Range: [0x0, 0xFFF];
+    td_u16 cr_min;             /* RW; Range: [0x0, cr_max];
                                   limited range: [0x0, u16CrMax],Minimum value of R/G for white region */
     ot_isp_awb_crop crop;
 } ot_isp_wb_stats_cfg;
@@ -2221,9 +2226,9 @@ typedef struct {
 } ot_isp_be_focus_stats;
 
 typedef struct {
-    ot_isp_fe_focus_stats  fe_af_stat;
+    ot_isp_fe_focus_stats  fe_af_stat; /* Not support for Hi3516CV610 */
     ot_isp_be_focus_stats  be_af_stat;
-    ot_isp_focus_grid_info fe_af_grid_info;
+    ot_isp_focus_grid_info fe_af_grid_info; /* Not support for Hi3516CV610 */
     ot_isp_focus_grid_info be_af_grid_info;
     td_u64 pts;
 } ot_isp_af_stats;
@@ -2953,7 +2958,7 @@ typedef struct {
 
 typedef enum {
     OT_ISP_ALG_AWB_GW      = 0,
-    OT_ISP_ALG_AWB_SPEC    = 1,
+    OT_ISP_ALG_AWB_SPEC    = 1, /* Not support for Hi3519DV500 and Hi3516CV610 */
     OT_ISP_ALG_BUTT
 } ot_isp_awb_alg;
 

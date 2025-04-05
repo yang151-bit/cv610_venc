@@ -84,6 +84,7 @@ extern "C" {
 #define OT_VENC_SVAC3_ADAPTIVE_FRAME_TYPE 4
 #define OT_VENC_SVAC3_ADAPTIVE_QP_TYPE    5
 #define OT_VENC_SVAC3E_LCU_SIZE           32
+#define OT_VENC_MAX_IN_DEPTH              3
 
 /* For RC */
 #define OT_VENC_MAX_BITRATE              (160 * 1024)
@@ -240,6 +241,8 @@ extern "C" {
 #define OT_VI_MAX_PIPE_NUM                (OT_VI_MAX_PHYS_PIPE_NUM + OT_VI_MAX_VIRT_PIPE_NUM)
 #define OT_VI_MAX_STITCH_GRP_NUM          2
 #define OT_VI_MAX_WDR_FUSION_GRP_NUM      OT_VI_MAX_PIPE_NUM
+#define OT_VI_MAX_DISTRIBUTE_GRP_NUM      2
+#define OT_VI_MAX_DISTRIBUTE_PIPE_NUM     2
 #define OT_VI_MAX_WDR_NUM                 2
 #define OT_VI_MAX_WDR_FRAME_NUM           2
 #define OT_VI_MAX_PHYS_CHN_NUM            1
@@ -441,9 +444,9 @@ extern "C" {
 #define OT_SVP_NPU_MAX_TASK_NODE_NUM    512
 #define OT_SVP_NPU_MIN_TASK_NODE_NUM    2
 #define OT_SVP_NPU_DEF_TASK_NODE_NUM    32
-#define OT_SVP_NPU_MAX_EVENT_NUM        128
+#define OT_SVP_NPU_MAX_EVENT_NUM        0
 #define OT_SVP_NPU_MIN_EVENT_NUM        0
-#define OT_SVP_NPU_DEF_EVENT_NUM        32
+#define OT_SVP_NPU_DEF_EVENT_NUM        0
 #define OT_SVP_NPU_MAX_PROF_MEM_KB      1048576
 #define OT_SVP_NPU_MIN_PROF_MEM_KB      512
 #define OT_SVP_NPU_DEF_PROF_MEM_KB      2048
@@ -458,7 +461,7 @@ extern "C" {
 #define OT_VGS_MAX_HOLLOW_RECT_COVER_NUM   OT_VGS_MAX_CORNER_RECT_NUM
 #define OT_VGS_MAX_RECT_COVER_NUM          (OT_VGS_MAX_SOLID_RECT_COVER_NUM + OT_VGS_MAX_HOLLOW_RECT_COVER_NUM)
 #define OT_VGS_MAX_QUAD_COVER_NUM          1
-#define OT_VGS_MAX_COVER_NUM               (OT_VGS_MAX_RECT_COVER_NUM + OT_VGS_MAX_QUAD_COVER_NUM)
+#define OT_VGS_MAX_COVER_NUM               OT_VGS_MAX_SOLID_RECT_COVER_NUM
 #define OT_VGS_MAX_OSD_NUM                 1
 #define OT_VGS_MAX_MOSAIC_NUM              1
 
